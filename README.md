@@ -156,7 +156,7 @@ Nothing copyrighted ever lives in this repo or the Flatpak. See
 converter/          the conversion pipeline (Python)
   convert.py          main driver: IPA -> playable game
   pvr_decode.py       PVRTC -> PNG decoder
-  tools/unluac.jar    pinned Lua 5.1 decompiler (add via scripts/fetch-unluac.sh)
+  tools/unluac.jar    pinned Lua 5.1 decompiler
 port-overlay/       original shim files, copied in verbatim
   boot.lua            MOAI 1.5 compatibility shim layer (~940 lines)
   run.sh              launcher
