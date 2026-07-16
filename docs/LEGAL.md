@@ -28,8 +28,8 @@ through Bungie. The game was delisted from the App Store and can no longer be
 purchased.
 
 "Delisted" and "unpurchasable" do **not** mean "public domain." The game is
-still fully under copyright. Distributing its assets or its source — even for
-a dead, unbuyable game — would infringe that copyright.
+still fully under copyright. Distributing its assets or its source, even for
+a dead, unbuyable game, would infringe that copyright.
 
 This project follows the established engine-reimplementation model (ScummVM,
 DXX-Rebirth, OpenRCT2's early asset handling, etc.): the tooling is
@@ -39,9 +39,9 @@ user's own machine.
 
 ## What that does and doesn't do for you
 
-- It removes **this project** from the business of distributing copyrighted
+- It removes this project from the business of distributing copyrighted
   assets — the part that actually draws enforcement (takedowns, etc.).
-- It does **not** grant you a license to the game. Running the converter
+- It does not grant you a license to the game. Running the converter
   produces a derivative work on your machine. For private, personal use the
   practical risk is negligible, but "negligible practical risk" is not the
   same as "licensed." 
