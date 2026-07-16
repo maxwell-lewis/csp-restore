@@ -195,6 +195,12 @@ Highlights (full detail in [docs/PORTING-NOTES.md](docs/PORTING-NOTES.md)):
 - **PVRTC textures**: decoded to PNG since desktop GL can't sample PVRTC.
 
 ---
+## Graphics
+
+Because I was only able to find the iphone api I cannot increase
+the resolution of the graphics any further without the ipad version.
+There is a visual bug with the ship trajectory display that
+makes it appeared offset from the ship, this however does not affect gameplay.
 
 ## Legal
 
