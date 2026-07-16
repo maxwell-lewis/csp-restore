@@ -1,0 +1,11 @@
+--- a/Pirates/pathfinding.lua
++++ b/Pirates/pathfinding.lua
+@@ -841,8 +841,6 @@
+           if _DEBUG_VAR_.DEBUG_PATHFINDING then
+           end
+           nextPt.reverse = true
+-          do break end
+-          do break end
+           if halfTheta > 0.001 then
+             local turnRadius = dist / 2 / math.sin(halfTheta)
+             local offset = turnRadius - turnRadius * math.cos(halfTheta)

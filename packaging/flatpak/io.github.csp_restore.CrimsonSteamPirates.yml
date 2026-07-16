@@ -1,0 +1,89 @@
+# Flatpak manifest for the Crimson Steam Pirates Linux port (bring-your-own-IPA).
+#
+# This Flatpak bundles ONLY original work + the open-source MOAI engine +
+# the conversion toolchain. It contains NO game assets. On first launch the
+# user is asked to supply their own .ipa, which is converted in place into the
+# app's writable data directory.
+#
+# Build:
+#   flatpak-builder --user --install --force-clean build-dir \
+#       io.github.csp_restore.CrimsonSteamPirates.yml
+#
+app-id: io.github.csp_restore.CrimsonSteamPirates
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+command: csp-launch
+
+finish-args:
+  # Display
+  - --socket=x11
+  - --socket=wayland
+  - --device=dri
+  # Audio
+  - --socket=pulseaudio
+  # The first-run setup tool needs to read the user-provided IPA. We grant
+  # read access to common download locations rather than the whole home dir.
+  - --filesystem=xdg-download:ro
+  - --filesystem=xdg-documents:ro
+  # Optional: allow fetching the IPA from the Internet Archive if the user
+  # chooses the "download for me" path. Comment out to force local-file only.
+  - --share=network
+
+modules:
+  # ---- The MOAI engine, built from open source ----------------------------
+  - name: sdl2
+    # Use the runtime's SDL2 if available; otherwise build. Most Freedesktop
+    # runtimes provide SDL2, so this is usually a no-op placeholder. If your
+    # runtime lacks it, add an SDL2 source module here.
+    buildsystem: simple
+    build-commands:
+      - 'true'
+
+  - name: moai
+    buildsystem: simple
+    build-commands:
+      # build-moai.sh clones + patches + builds the engine and drops it at
+      # /app/lib/csp/moai
+      - mkdir -p /app/lib/csp
+      - bash scripts/build-moai.sh /app/lib/csp/moai
+    sources:
+      - type: dir
+        path: ../..   # repo root, so scripts/ and converter/ are present
+
+  # ---- The converter toolchain + first-run app ----------------------------
+  - name: csp-restore
+    buildsystem: simple
+    build-commands:
+      # Install the converter, overlay, patches, and tools into /app
+      - mkdir -p /app/lib/csp
+      - cp -r converter /app/lib/csp/converter
+      - cp -r port-overlay /app/lib/csp/port-overlay
+      - cp -r patches /app/lib/csp/patches
+      - cp -r scripts /app/lib/csp/scripts
+      # Launcher + first-run setup
+      - install -Dm755 packaging/flatpak/csp-launch /app/bin/csp-launch
+      - install -Dm755 packaging/flatpak/csp-setup.py /app/lib/csp/csp-setup.py
+      # Desktop integration
+      - install -Dm644 packaging/flatpak/io.github.csp_restore.CrimsonSteamPirates.desktop
+          /app/share/applications/io.github.csp_restore.CrimsonSteamPirates.desktop
+      - install -Dm644 packaging/flatpak/io.github.csp_restore.CrimsonSteamPirates.metainfo.xml
+          /app/share/metainfo/io.github.csp_restore.CrimsonSteamPirates.metainfo.xml
+      - install -Dm644 packaging/flatpak/icon-256.png
+          /app/share/icons/hicolor/256x256/apps/io.github.csp_restore.CrimsonSteamPirates.png
+    sources:
+      - type: dir
+        path: ../..
+
+  # Python deps for the converter (PVRTC decode + imaging). Add as needed;
+  # on Flathub you'd pin these to specific wheels with checksums.
+  - name: python-deps
+    buildsystem: simple
+    build-commands:
+      - pip3 install --prefix=/app --no-index --find-links=wheels
+          texture2ddecoder pillow || pip3 install --prefix=/app
+          texture2ddecoder pillow
+    sources:
+      - type: dir
+        path: wheels
+        dest: wheels

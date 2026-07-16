@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.csp_restore.CrimsonSteamPirates</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Crimson Steam Pirates</name>
+  <summary>Linux port of the 2011 naval combat strategy game (bring your own IPA)</summary>
+  <description>
+    <p>
+      A native Linux runtime for Crimson Steam Pirates, the 2011 iPhone-only
+      turn-based naval combat game by Bungie / Harebrained Schemes, built on
+      the MOAI SDK.
+    </p>
+    <p>
+      This application contains no game assets. On first launch it asks you to
+      supply your own copy of the original .ipa (archived at the Internet
+      Archive) and rebuilds the playable game from it on your machine. This is
+      the same "bring your own game data" model used by ScummVM and other
+      engine reimplementations.
+    </p>
+  </description>
+  <categories>
+    <category>Game</category>
+    <category>StrategyGame</category>
+  </categories>
+  <launchable type="desktop-id">io.github.csp_restore.CrimsonSteamPirates.desktop</launchable>
+  <provides>
+    <binary>csp-launch</binary>
+  </provides>
+  <content_rating type="oars-1.1">
+    <content_attribute id="violence-cartoon">moderate</content_attribute>
+  </content_rating>
+  <releases>
+    <release version="1.0.0" date="2026-07-14"/>
+  </releases>
+</component>

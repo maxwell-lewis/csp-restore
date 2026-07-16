@@ -1,0 +1,28 @@
+--- a/Pirates/utility.lua
++++ b/Pirates/utility.lua
+@@ -671,7 +671,7 @@
+   else
+     error("Error loading level: " .. file .. ": " .. result)
+   end
+-  return d:digest()
++  return d:final()
+ end
+ function GenerateLevelDigests()
+   local levelList, levelListMulti = dofile("levelList.lua")
+@@ -703,7 +703,7 @@
+       hmac:update(tostr(v))
+     end
+   end
+-  t._sig = hmac:digest()
++  t._sig = hmac:final()
+   return t
+ end
+ _AsyncHttpTasks = {}
+@@ -1014,7 +1014,6 @@
+   self[key] = value
+   self:save()
+ end
+-do break end
+ do
+   local stfile = GetDataPath("_PersistentTable.lua")
+   local function _assert(value)

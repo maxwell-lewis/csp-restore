@@ -1,0 +1,20 @@
+--- a/Pirates/AIManager.lua
++++ b/Pirates/AIManager.lua
+@@ -207,7 +207,7 @@
+         ship.pathTarget.curTarget = ship.pathTarget.pathTarget
+         ship.pathTarget.curTarget.hasTarget = true
+       else
+-        local curX, curY = ship.ship.sprite.getLoc()
++        local curX, curY = ship.ship.sprite:getLoc()
+         ship.pathTarget.curTarget = {
+           x = curX,
+           y = curY,
+@@ -268,7 +268,7 @@
+         ship.pathTarget.curTarget = ship.pathTarget.pathTarget
+         ship.pathTarget.curTarget.hasTarget = true
+       else
+-        local curX, curY = ship.ship.sprite.getLoc()
++        local curX, curY = ship.ship.sprite:getLoc()
+         ship.pathTarget.curTarget = {
+           x = curX,
+           y = curY,

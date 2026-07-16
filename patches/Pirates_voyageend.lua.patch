@@ -1,0 +1,141 @@
+--- a/Pirates/voyageend.lua
++++ b/Pirates/voyageend.lua
+@@ -22,13 +22,30 @@
+     end
+   end,
+   init_iphone = function()
+-    if voyageendScene.initialized then
++    -- State-aware idempotency. The original guard was just
++    -- `if voyageendScene.initialized then return end`. But init() can be
++    -- called more than once per scene visit (multiple end-game triggers,
++    -- or the playOverTime end path calling it after a trigger already
++    -- did), and voyageendState can change to its correct WIN/LOSE value
++    -- between those calls. If the FIRST init() ran while the state was
++    -- still the default WINMENU_STATE (0), it would build winMenu and set
++    -- initialized=true; the later setToLose()+init() would then be blocked,
++    -- leaving loseMenu unpopulated -> "attempt to index field 'background'
++    -- (a nil value)" in showLoseMenu_iphone. Tracking which state was
++    -- actually initialized lets us re-run for the new state.
++    if voyageendScene.initialized and voyageendScene.initializedState == voyageendScene.voyageendState then
+       return
+     end
+     EmergencyReleaseMemory()
+-    PushResourceBucket("voyageEnd")
++    -- Only push the resource bucket once per scene visit. If init re-runs
++    -- for a changed state (WIN->LOSE), we must NOT push a second time or
++    -- the bucket stack unbalances (close() pops exactly once).
++    if not voyageendScene.initialized then
++      PushResourceBucket("voyageEnd")
++    end
+     print("Voyage End Scene Init")
+     voyageendScene.initialized = true
++    voyageendScene.initializedState = voyageendScene.voyageendState
+     if voyageendScene.voyageendState == WINMENU_STATE then
+       voyageendScene.winMenu = {}
+       local winMenu = voyageendScene.winMenu
+@@ -301,13 +318,16 @@
+     leaderboardsScene.init()
+   end,
+   init_ipad = function()
+-    if voyageendScene.initialized then
++    if voyageendScene.initialized and voyageendScene.initializedState == voyageendScene.voyageendState then
+       return
+     end
+     EmergencyReleaseMemory()
+-    PushResourceBucket("voyageEnd")
++    if not voyageendScene.initialized then
++      PushResourceBucket("voyageEnd")
++    end
+     print("Voyage End Scene Init")
+     voyageendScene.initialized = true
++    voyageendScene.initializedState = voyageendScene.voyageendState
+     if voyageendScene.voyageendState == WINMENU_STATE then
+       voyageendScene.winMenu = {}
+       local winMenu = voyageendScene.winMenu
+@@ -939,6 +959,7 @@
+     PopResourceBucket()
+     ReleaseResourceBucket("voyageEnd")
+     voyageendScene.initialized = false
++    voyageendScene.initializedState = nil
+   end,
+   setToWin = function()
+     voyageendScene.voyageendState = WINMENU_STATE
+@@ -1899,6 +1920,16 @@
+     voyageendScene.showing = true
+     voyageendScene.gameState = LOSEMENU_STATE
+     local loseMenu = voyageendScene.loseMenu
++    -- Safety net: if loseMenu wasn't populated (background nil), the LOSE
++    -- branch of init never ran for the current state. Force it now so we
++    -- render the defeat screen instead of crashing on a nil index. The
++    -- state-aware init guard means this re-runs the LOSE branch cleanly.
++    if not (loseMenu and loseMenu.background) then
++      voyageendScene.voyageendState = LOSEMENU_STATE
++      voyageendScene.initializedState = nil
++      voyageendScene.init()
++      loseMenu = voyageendScene.loseMenu
++    end
+     HUDlayer:insertProp(loseMenu.background.sprite)
+     loseMenu.mainmenuBtn.sprite:setLoc(-(SCREEN_WIDTH / 2) + 32, SCREEN_HEIGHT / 2 - 32)
+     HUDlayer:insertProp(loseMenu.mainmenuBtn.sprite)
+@@ -2118,11 +2149,13 @@
+       end
+     elseif voyageendScene.gameState == LOSEMENU_STATE then
+       local loseMenu = voyageendScene.loseMenu
+-      loseMenu.mainmenuBtn:down(inputX, inputY)
+-      loseMenu.replayBtn:down(inputX, inputY)
+-      loseMenu.leaderboardsBtn:down(inputX, inputY)
+-      if loseMenu.nextBtn.inUse then
+-        loseMenu.nextBtn:down(inputX, inputY)
++      if loseMenu and loseMenu.mainmenuBtn then
++        loseMenu.mainmenuBtn:down(inputX, inputY)
++        loseMenu.replayBtn:down(inputX, inputY)
++        loseMenu.leaderboardsBtn:down(inputX, inputY)
++        if loseMenu.nextBtn.inUse then
++          loseMenu.nextBtn:down(inputX, inputY)
++        end
+       end
+     elseif voyageendScene.gameState == LEADERBOARDS_STATE then
+       leaderboardsScene.inputDown(inputX, inputY)
+@@ -2185,11 +2218,18 @@
+       end
+     elseif voyageendScene.gameState == LOSEMENU_STATE then
+       local loseMenu = voyageendScene.loseMenu
+-      loseMenu.mainmenuBtn:isDown(inputX, inputY)
+-      loseMenu.replayBtn:isDown(inputX, inputY)
+-      loseMenu.leaderboardsBtn:isDown(inputX, inputY)
+-      if loseMenu.nextBtn.inUse then
+-        loseMenu.nextBtn:isDown(inputX, inputY)
++      -- Guard: only process input if the menu was actually built. A failed
++      -- or mid-flight init could leave loseMenu unpopulated while gameState
++      -- is already LOSEMENU_STATE; without this the per-frame input handler
++      -- would crash on a nil button. showLoseMenu_iphone populates loseMenu
++      -- before setting gameState, so normally this is always true.
++      if loseMenu and loseMenu.mainmenuBtn then
++        loseMenu.mainmenuBtn:isDown(inputX, inputY)
++        loseMenu.replayBtn:isDown(inputX, inputY)
++        loseMenu.leaderboardsBtn:isDown(inputX, inputY)
++        if loseMenu.nextBtn.inUse then
++          loseMenu.nextBtn:isDown(inputX, inputY)
++        end
+       end
+     elseif voyageendScene.gameState == LEADERBOARDS_STATE then
+       leaderboardsScene.inputIsDown(inputX, inputY)
+@@ -2268,11 +2308,13 @@
+       end
+     elseif voyageendScene.gameState == LOSEMENU_STATE then
+       local loseMenu = voyageendScene.loseMenu
+-      loseMenu.mainmenuBtn:up()
+-      loseMenu.replayBtn:up()
+-      loseMenu.leaderboardsBtn:up()
+-      if loseMenu.nextBtn.inUse then
+-        loseMenu.nextBtn:up()
++      if loseMenu and loseMenu.mainmenuBtn then
++        loseMenu.mainmenuBtn:up()
++        loseMenu.replayBtn:up()
++        loseMenu.leaderboardsBtn:up()
++        if loseMenu.nextBtn.inUse then
++          loseMenu.nextBtn:up()
++        end
+       end
+     elseif voyageendScene.gameState == LEADERBOARDS_STATE then
+       leaderboardsScene.inputUp(inputX, inputY)

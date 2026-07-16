@@ -1,0 +1,45 @@
+--- a/Pirates/srHandler.lua
++++ b/Pirates/srHandler.lua
+@@ -1203,10 +1203,8 @@
+         if err then
+           print(err)
+         end
+-        while true do
+-          if err then
+-          end
+-        end
++        -- (Decompiler emitted an unconditional `while true do ... end` here,
++        -- which busy-loops forever and hangs the engine. Removed.)
+       end
+     end)
+     timer:start()
+@@ -1269,6 +1267,16 @@
+     firingTimer:setSpan(0, TURN_LENGTH / NUM_ITERATIONS)
+     firingTimer:setMode(MOAITimer.LOOP)
+     local lastIter = -1
++    -- `panic` was a never-reset global in the 2011 source. Once set true
++    -- (because foo ran twice with attackLoops not advancing), it stayed
++    -- true for the rest of the game session, printing "PANIC!!!" on every
++    -- subsequent firing-timer tick across every mission. The original
++    -- 2011 code had a `while true do end` infinite-loop crash handler on
++    -- this path (removed at port time because it hung the engine). Without
++    -- the crash, the panic flag is harmless flag but the spam is noisy
++    -- and obscures real logs. Localize it so it resets per playOverTime
++    -- invocation (per turn).
++    local panic = false
+     local function foo()
+       if lastIter < gameplayScene.attackLoops then
+         lastIter = gameplayScene.attackLoops
+@@ -1308,10 +1316,8 @@
+         if err then
+           print(err)
+         end
+-        while true do
+-          if err then
+-          end
+-        end
++        -- (Decompiler emitted an unconditional `while true do ... end` here,
++        -- which busy-loops forever and hangs the engine. Removed.)
+       end
+     end)
+     firingTimer:start()

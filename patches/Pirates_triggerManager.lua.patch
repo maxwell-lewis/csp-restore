@@ -1,0 +1,33 @@
+--- a/Pirates/triggerManager.lua
++++ b/Pirates/triggerManager.lua
+@@ -4119,13 +4119,24 @@
+           orConditionsList = {}
+           tinsert(orConditionsList, {})
+           local orConditions = orConditionsList[#orConditionsList]
++          -- Decompiler artifact fix: the decompiled form was
++          --   while true do
++          --     if k >= 1 and conditions[k].conType ~= OR then
++          --       tinsert(...); k = k - 1; break
++          --     end
++          --   end
++          -- which (a) collected only ONE condition before the OR into the
++          -- first group, dropping the rest of the AND-chain, and (b) would
++          -- infinite-loop if an OR was the first condition. E.g. the
++          -- Chapt3_BoysAndTheirToys defeat trigger is
++          --   (p1 lost RedBreaker AND p6 lost RedBreaker) OR (p1 lost CrimsonSky)
++          -- and dropping the first condition made it fire on turn 1 because
++          -- player 6 doesn't own the Red Breaker until mid-mission.
++          -- Restored to the obvious original while-loop semantics:
+           local k = j - 1
+-          while true do
+-            if k >= 1 and conditions[k].conType ~= OR then
+-              tinsert(orConditions, 1, conditions[k])
+-              k = k - 1
+-              break
+-            end
++          while k >= 1 and conditions[k].conType ~= OR do
++            tinsert(orConditions, 1, conditions[k])
++            k = k - 1
+           end
+         end
+         tinsert(orConditionsList, {})

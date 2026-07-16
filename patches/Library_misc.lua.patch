@@ -1,0 +1,10 @@
+--- a/Library/misc.lua
++++ b/Library/misc.lua
+@@ -46,7 +46,6 @@
+   local bakeBase = string.format("%s-%d", file:gsub("%.ttf$", ""), pointsize)
+   print("  BAKING TTF!!!!")
+   font:loadFromTTF(file, charcodes, pointsize, _defaultDPI)
+-  do break end
+   print("  LOADED BAKED TTF!!!!")
+   return font
+ end

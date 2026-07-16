@@ -1,0 +1,180 @@
+--- a/Library/screen.lua
++++ b/Library/screen.lua
+@@ -26,7 +26,25 @@
+     SCREEN_HEIGHT = 768
+   end
+ end
++-- DISPLAY_WIDTH/HEIGHT are LOGICAL coordinates (despite the name): the game
++-- code uses them as world units (e.g. -DISPLAY_WIDTH/2 for the centered
++-- darken-screen rectangle in hudHandler.lua). They MUST stay at iPhone-
++-- native 480x320 even when we upscale the physical window. We introduce
++-- WINDOW_WIDTH/HEIGHT for actual pixel dimensions instead.
+ DISPLAY_WIDTH, DISPLAY_HEIGHT = SCREEN_WIDTH, SCREEN_HEIGHT
++
++-- DESKTOP_UPSCALE_FACTOR (set in boot.lua before this file runs) increases
++-- the physical window size only. SCREEN_WIDTH/HEIGHT and DISPLAY_WIDTH/HEIGHT
++-- stay at logical iPhone values so all UI positioning, hit-testing, and
++-- per-frame world arithmetic keeps working. The OpenGL viewport upscales
++-- the logical canvas into the larger window automatically: setSize gets
++-- the physical pixel count, setScale stays at logical.
++WINDOW_WIDTH = DISPLAY_WIDTH
++WINDOW_HEIGHT = DISPLAY_HEIGHT
++if DESKTOP_UPSCALE_FACTOR and DESKTOP_UPSCALE_FACTOR > 1 then
++  WINDOW_WIDTH = SCREEN_WIDTH * DESKTOP_UPSCALE_FACTOR
++  WINDOW_HEIGHT = SCREEN_HEIGHT * DESKTOP_UPSCALE_FACTOR
++end
+ IMG_PATH = "img/"
+ PARTICLES_PATH = "particles/"
+ if SCREEN_WIDTH == 480 and SCREEN_HEIGHT == 320 then
+@@ -48,7 +66,7 @@
+ debugLayer = MOAILayer2D.new()
+ HUDDebugLayer = MOAILayer2D.new()
+ viewport = MOAIViewport.new()
+-viewport:setSize(DISPLAY_WIDTH, DISPLAY_HEIGHT)
++viewport:setSize(WINDOW_WIDTH, WINDOW_HEIGHT)
+ viewport:setScale(SCREEN_WIDTH, SCREEN_HEIGHT)
+ layer:setCamera(camera)
+ layer:setViewport(viewport)
+@@ -72,7 +90,7 @@
+   mainmenuMenuLayer = MOAILayer2D.new()
+   mainmenuMenuCamera:setScl(CAMERA_START_S, CAMERA_START_S)
+   mainmenuMenuCamera:setLoc(CAMERA_START_X, CAMERA_START_Y)
+-  mainmenuMenuViewport:setSize(DISPLAY_WIDTH * 0.26758, DISPLAY_HEIGHT * 0.238885, DISPLAY_WIDTH * 0.95703, DISPLAY_HEIGHT * 0.77144)
++  mainmenuMenuViewport:setSize(WINDOW_WIDTH * 0.26758, WINDOW_HEIGHT * 0.238885, WINDOW_WIDTH * 0.95703, WINDOW_HEIGHT * 0.77144)
+   mainmenuMenuViewport:setScale(DISPLAY_WIDTH * 0.68945, DISPLAY_HEIGHT * 0.532555)
+   mainmenuMenuLayer:setCamera(mainmenuMenuCamera)
+   mainmenuMenuLayer:setViewport(mainmenuMenuViewport)
+@@ -82,7 +100,7 @@
+   mainmenuMenuLayer = MOAILayer2D.new()
+   mainmenuMenuCamera:setScl(CAMERA_START_S, CAMERA_START_S)
+   mainmenuMenuCamera:setLoc(CAMERA_START_X, CAMERA_START_Y)
+-  mainmenuMenuViewport:setSize(DISPLAY_WIDTH, DISPLAY_HEIGHT)
++  mainmenuMenuViewport:setSize(WINDOW_WIDTH, WINDOW_HEIGHT)
+   mainmenuMenuViewport:setScale(SCREEN_WIDTH, SCREEN_HEIGHT)
+   mainmenuMenuLayer:setCamera(mainmenuMenuCamera)
+   mainmenuMenuLayer:setViewport(mainmenuMenuViewport)
+@@ -93,7 +111,7 @@
+   creditsLayer = MOAILayer2D.new()
+   creditsCamera:setScl(CAMERA_START_S, CAMERA_START_S)
+   creditsCamera:setLoc(CAMERA_START_X, CAMERA_START_Y)
+-  creditsViewport:setSize(DISPLAY_WIDTH * 0.1, DISPLAY_HEIGHT * 0.1, DISPLAY_WIDTH * 0.9, DISPLAY_HEIGHT * 0.9)
++  creditsViewport:setSize(WINDOW_WIDTH * 0.1, WINDOW_HEIGHT * 0.1, WINDOW_WIDTH * 0.9, WINDOW_HEIGHT * 0.9)
+   creditsViewport:setScale(DISPLAY_WIDTH * 0.8, DISPLAY_HEIGHT * 0.8)
+   creditsLayer:setCamera(creditsCamera)
+   creditsLayer:setViewport(creditsViewport)
+@@ -103,7 +121,7 @@
+   creditsLayer = MOAILayer2D.new()
+   creditsCamera:setScl(CAMERA_START_S, CAMERA_START_S)
+   creditsCamera:setLoc(CAMERA_START_X, CAMERA_START_Y)
+-  creditsViewport:setSize(DISPLAY_WIDTH, DISPLAY_HEIGHT)
++  creditsViewport:setSize(WINDOW_WIDTH, WINDOW_HEIGHT)
+   creditsViewport:setScale(DISPLAY_WIDTH, DISPLAY_HEIGHT)
+   creditsLayer:setCamera(creditsCamera)
+   creditsLayer:setViewport(creditsViewport)
+@@ -114,7 +132,7 @@
+   leaderboardsLayer = MOAILayer2D.new()
+   leaderboardsCamera:setScl(CAMERA_START_S, CAMERA_START_S)
+   leaderboardsCamera:setLoc(CAMERA_START_X, CAMERA_START_Y)
+-  leaderboardsViewport:setSize(DISPLAY_WIDTH * 0.152, DISPLAY_HEIGHT * 0.319, DISPLAY_WIDTH * 0.838, DISPLAY_HEIGHT * 0.8)
++  leaderboardsViewport:setSize(WINDOW_WIDTH * 0.152, WINDOW_HEIGHT * 0.319, WINDOW_WIDTH * 0.838, WINDOW_HEIGHT * 0.8)
+   leaderboardsViewport:setScale(DISPLAY_WIDTH * 0.6878, DISPLAY_HEIGHT * 0.481)
+   leaderboardsLayer:setCamera(leaderboardsCamera)
+   leaderboardsLayer:setViewport(leaderboardsViewport)
+@@ -124,7 +142,7 @@
+   leaderboardsLayer = MOAILayer2D.new()
+   leaderboardsCamera:setScl(CAMERA_START_S, CAMERA_START_S)
+   leaderboardsCamera:setLoc(CAMERA_START_X, CAMERA_START_Y)
+-  leaderboardsViewport:setSize(DISPLAY_WIDTH * 0.119108, DISPLAY_HEIGHT * 0.285714, DISPLAY_WIDTH * 0.88674, DISPLAY_HEIGHT * 0.795031)
++  leaderboardsViewport:setSize(WINDOW_WIDTH * 0.119108, WINDOW_HEIGHT * 0.285714, WINDOW_WIDTH * 0.88674, WINDOW_HEIGHT * 0.795031)
+   leaderboardsViewport:setScale(DISPLAY_WIDTH * 0.767632, DISPLAY_HEIGHT * 0.509317)
+   leaderboardsLayer:setCamera(leaderboardsCamera)
+   leaderboardsLayer:setViewport(leaderboardsViewport)
+@@ -135,7 +153,7 @@
+   chatlogLayer = MOAILayer2D.new()
+   chatlogCamera:setScl(CAMERA_START_S, CAMERA_START_S)
+   chatlogCamera:setLoc(CAMERA_START_X, CAMERA_START_Y)
+-  chatlogViewport:setSize(DISPLAY_WIDTH * 0.72168, DISPLAY_HEIGHT * 0.747396, DISPLAY_WIDTH * 0.9785, DISPLAY_HEIGHT)
++  chatlogViewport:setSize(WINDOW_WIDTH * 0.72168, WINDOW_HEIGHT * 0.747396, WINDOW_WIDTH * 0.9785, WINDOW_HEIGHT)
+   chatlogViewport:setScale(DISPLAY_WIDTH * 0.25682, DISPLAY_HEIGHT * 0.252604)
+   chatlogLayer:setCamera(chatlogCamera)
+   chatlogLayer:setViewport(chatlogViewport)
+@@ -145,7 +163,7 @@
+   chatlogLayer = MOAILayer2D.new()
+   chatlogCamera:setScl(CAMERA_START_S, CAMERA_START_S)
+   chatlogCamera:setLoc(CAMERA_START_X, CAMERA_START_Y)
+-  chatlogViewport:setSize(DISPLAY_WIDTH * 0.431535, DISPLAY_HEIGHT * 0.39252, DISPLAY_WIDTH * 0.983, DISPLAY_HEIGHT)
++  chatlogViewport:setSize(WINDOW_WIDTH * 0.431535, WINDOW_HEIGHT * 0.39252, WINDOW_WIDTH * 0.983, WINDOW_HEIGHT)
+   chatlogViewport:setScale(DISPLAY_WIDTH * 0.551465, DISPLAY_HEIGHT * 0.60748)
+   chatlogLayer:setCamera(chatlogCamera)
+   chatlogLayer:setViewport(chatlogViewport)
+@@ -156,7 +174,7 @@
+   fortDetailLayer = MOAILayer2D.new()
+   fortDetailCamera:setScl(CAMERA_START_S, CAMERA_START_S)
+   fortDetailCamera:setLoc(CAMERA_START_X, CAMERA_START_Y)
+-  fortDetailViewport:setSize(DISPLAY_WIDTH * 0.35516, DISPLAY_HEIGHT * 0.16875, DISPLAY_WIDTH * 0.9583, DISPLAY_HEIGHT * 0.9)
++  fortDetailViewport:setSize(WINDOW_WIDTH * 0.35516, WINDOW_HEIGHT * 0.16875, WINDOW_WIDTH * 0.9583, WINDOW_HEIGHT * 0.9)
+   fortDetailViewport:setScale(DISPLAY_WIDTH * 0.60314, DISPLAY_HEIGHT * 0.73125)
+   fortDetailLayer:setCamera(fortDetailCamera)
+   fortDetailLayer:setViewport(fortDetailViewport)
+@@ -166,7 +184,7 @@
+ shipCrewDetailLayer = MOAILayer2D.new()
+ shipCrewDetailCamera:setScl(CAMERA_START_S, CAMERA_START_S)
+ shipCrewDetailCamera:setLoc(CAMERA_START_X, CAMERA_START_Y)
+-shipCrewDetailViewport:setSize(DISPLAY_WIDTH * 0.296, DISPLAY_HEIGHT * 0.1875, DISPLAY_WIDTH * 0.7, DISPLAY_HEIGHT * 0.875)
++shipCrewDetailViewport:setSize(WINDOW_WIDTH * 0.296, WINDOW_HEIGHT * 0.1875, WINDOW_WIDTH * 0.7, WINDOW_HEIGHT * 0.875)
+ shipCrewDetailViewport:setScale(DISPLAY_WIDTH * 0.404, DISPLAY_HEIGHT * 0.6875)
+ shipCrewDetailLayer:setCamera(shipCrewDetailCamera)
+ shipCrewDetailLayer:setViewport(shipCrewDetailViewport)
+@@ -176,7 +194,7 @@
+   crewDetailLayer = MOAILayer2D.new()
+   crewDetailCamera:setScl(CAMERA_START_S, CAMERA_START_S)
+   crewDetailCamera:setLoc(CAMERA_START_X, CAMERA_START_Y)
+-  crewDetailViewport:setSize(DISPLAY_WIDTH * 0.40625, DISPLAY_HEIGHT * 0.17134, DISPLAY_WIDTH * 0.94583, DISPLAY_HEIGHT * 0.92523)
++  crewDetailViewport:setSize(WINDOW_WIDTH * 0.40625, WINDOW_HEIGHT * 0.17134, WINDOW_WIDTH * 0.94583, WINDOW_HEIGHT * 0.92523)
+   crewDetailViewport:setScale(DISPLAY_WIDTH * 0.53958, DISPLAY_HEIGHT * 0.75389)
+   crewDetailLayer:setCamera(crewDetailCamera)
+   crewDetailLayer:setViewport(crewDetailViewport)
+@@ -187,7 +205,7 @@
+   boardingAction1CrewLayer = MOAILayer2D.new()
+   boardingAction1CrewCamera:setScl(CAMERA_START_S, CAMERA_START_S)
+   boardingAction1CrewCamera:setLoc(CAMERA_START_X, CAMERA_START_Y)
+-  boardingAction1CrewViewport:setSize(DISPLAY_WIDTH * 0.006224, DISPLAY_HEIGHT * 0.200187, DISPLAY_WIDTH * 0.2697, DISPLAY_HEIGHT * 0.975888)
++  boardingAction1CrewViewport:setSize(WINDOW_WIDTH * 0.006224, WINDOW_HEIGHT * 0.200187, WINDOW_WIDTH * 0.2697, WINDOW_HEIGHT * 0.975888)
+   boardingAction1CrewViewport:setScale(DISPLAY_WIDTH * 0.290476, DISPLAY_HEIGHT * 0.775701)
+   boardingAction1CrewLayer:setCamera(boardingAction1CrewCamera)
+   boardingAction1CrewLayer:setViewport(boardingAction1CrewViewport)
+@@ -196,7 +214,7 @@
+   boardingAction3x1CrewLayer = MOAILayer2D.new()
+   boardingAction3x1CrewCamera:setScl(CAMERA_START_S, CAMERA_START_S)
+   boardingAction3x1CrewCamera:setLoc(CAMERA_START_X, CAMERA_START_Y)
+-  boardingAction3x1CrewViewport:setSize(DISPLAY_WIDTH * 0.02495, DISPLAY_HEIGHT * 0.375625, DISPLAY_WIDTH * 0.4761, DISPLAY_HEIGHT * 0.84375)
++  boardingAction3x1CrewViewport:setSize(WINDOW_WIDTH * 0.02495, WINDOW_HEIGHT * 0.375625, WINDOW_WIDTH * 0.4761, WINDOW_HEIGHT * 0.84375)
+   boardingAction3x1CrewViewport:setScale(DISPLAY_WIDTH * 0.45115, DISPLAY_HEIGHT * 0.468125)
+   boardingAction3x1CrewLayer:setCamera(boardingAction3x1CrewCamera)
+   boardingAction3x1CrewLayer:setViewport(boardingAction3x1CrewViewport)
+@@ -205,14 +223,14 @@
+   boardingAction3x2CrewLayer = MOAILayer2D.new()
+   boardingAction3x2CrewCamera:setScl(CAMERA_START_S, CAMERA_START_S)
+   boardingAction3x2CrewCamera:setLoc(CAMERA_START_X, CAMERA_START_Y)
+-  boardingAction3x2CrewViewport:setSize(DISPLAY_WIDTH * 0.5239, DISPLAY_HEIGHT * 0.375625, DISPLAY_WIDTH * 0.97297, DISPLAY_HEIGHT * 0.84375)
++  boardingAction3x2CrewViewport:setSize(WINDOW_WIDTH * 0.5239, WINDOW_HEIGHT * 0.375625, WINDOW_WIDTH * 0.97297, WINDOW_HEIGHT * 0.84375)
+   boardingAction3x2CrewViewport:setScale(DISPLAY_WIDTH * 0.45115, DISPLAY_HEIGHT * 0.468125)
+   boardingAction3x2CrewLayer:setCamera(boardingAction3x2CrewCamera)
+   boardingAction3x2CrewLayer:setViewport(boardingAction3x2CrewViewport)
+ end
+ onionViewport = MOAIViewport.new()
+ onionLayer = MOAILayer2D.new()
+-onionViewport:setSize(DISPLAY_WIDTH, DISPLAY_HEIGHT)
++onionViewport:setSize(WINDOW_WIDTH, WINDOW_HEIGHT)
+ onionViewport:setScale(SCREEN_WIDTH, SCREEN_HEIGHT)
+ onionLayer:setCamera(MOAITransform.new())
+ onionLayer:setViewport(onionViewport)
+@@ -239,7 +257,7 @@
+ MOAISim.pushRenderPass(loadLayer)
+ MOAISim.pushRenderPass(debugLayer)
+ MOAISim.pushRenderPass(HUDDebugLayer)
+-MOAISim.openWindow("Crimson", DISPLAY_WIDTH, DISPLAY_HEIGHT)
++MOAISim.openWindow("Crimson", WINDOW_WIDTH, WINDOW_HEIGHT)
+ function SetGameplayLayersVisible(value)
+   if iOS then
+     layer:setRenderEnabled(value)

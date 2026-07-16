@@ -1,0 +1,22 @@
+#!/bin/bash
+# Flatpak entry point. On first launch (no game staged yet) it runs the setup
+# tool to convert the user's IPA. On subsequent launches it goes straight to
+# the game.
+set -euo pipefail
+
+# Writable per-user data dir (Flatpak maps this to
+# ~/.var/app/<app-id>/data/).
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/crimson-steam-pirates"
+GAME_DIR="$DATA_DIR/game"
+CSP_LIB="/app/lib/csp"
+
+export CSP_LIB DATA_DIR GAME_DIR
+
+if [ ! -f "$GAME_DIR/boot.lua" ]; then
+    # Not set up yet — run first-run setup (GUI file picker + conversion).
+    exec python3 "$CSP_LIB/csp-setup.py"
+fi
+
+# Already converted — launch the game with the bundled engine.
+cd "$GAME_DIR"
+exec /app/lib/csp/moai boot.lua

@@ -1,0 +1,48 @@
+--- a/Library/objects.lua
++++ b/Library/objects.lua
+@@ -329,7 +329,44 @@
+   if tex == nil then
+     local isQuantized = false
+     tex = MOAITexture.new()
+-    if iOS then
++    -- Asset format priority on desktop:
++    --   1. PNG (preferred -- universal GPU support, was always 1st choice on iPad
++    --      and is what we get after offline PVRTC decompression)
++    --   2. .q.png (quantized PNG -- compressed RGBA used as a smaller-footprint
++    --      fallback for some HUD elements)
++    --   3. .pv1 / .pvr (Apple PVRTC -- 4bpp compressed for PowerVR GPUs; MOAI 1.5
++    --      can parse the header but desktop OpenGL drivers can't decode PVRTC,
++    --      so the texture would bind but render as a gray block. Only use as
++    --      a last resort if no PNG variant exists.)
++    do
++      local pngCheck = io.open(IMG_PATH .. file)
++      if pngCheck ~= nil then
++        io.close(pngCheck)
++        -- file is already a .png that exists; keep it
++      else
++        local QPath = string.gsub(file, ".png", ".q.png")
++        local qcheck = io.open(IMG_PATH .. QPath)
++        if qcheck ~= nil then
++          io.close(qcheck)
++          file = QPath
++          isQuantized = true
++        else
++          -- Fall back to PVR if no PNG variant exists.
++          local PVRpath = string.gsub(file, ".png", ".pv1")
++          local pvrCheck = io.open(IMG_PATH .. PVRpath)
++          if pvrCheck == nil then
++            PVRpath = string.gsub(file, ".png", ".pvr")
++            pvrCheck = io.open(IMG_PATH .. PVRpath)
++          end
++          if pvrCheck ~= nil then
++            io.close(pvrCheck)
++            filter = nil
++            file = PVRpath
++          end
++        end
++      end
++    end
++    if false then  -- old iOS branch, replaced by always-try-pvr above
+       local PVRpath, check
+       PVRpath = string.gsub(file, ".png", ".pv1")
+       check = io.open(IMG_PATH .. PVRpath)

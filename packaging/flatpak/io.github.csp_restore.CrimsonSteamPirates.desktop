@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Crimson Steam Pirates
+Comment=Turn-based naval combat (Linux port; requires your own IPA)
+Exec=csp-launch
+Icon=io.github.csp_restore.CrimsonSteamPirates
+Terminal=false
+Categories=Game;StrategyGame;

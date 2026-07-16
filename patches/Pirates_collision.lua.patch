@@ -1,0 +1,30 @@
+--- a/Pirates/collision.lua
++++ b/Pirates/collision.lua
+@@ -395,7 +395,7 @@
+     for i = 1, #active_ships do
+       local ship = active_ships[i]
+       local body = ship.physicsDynamicBody
+-      if body and body:isActive() then
++      if body and body:isActive() and ship.ship and ship.ship.sprite then
+         local sprite = ship.ship.sprite
+         local cx, cy = body:getWorldCenter()
+         local a = body:getAngle()
+@@ -517,7 +517,17 @@
+             end
+             local w0 = thetaRad / t
+             body:setAngularVelocity(0)
+-            local thrust = 5.5 * (2 * ship.physicsMass * (s - v0 * t)) / t_2
++            -- The original 5.5 multiplier was tuned for 2011 MOAI 1.0 with
++            -- Box2D 2.1. In MOAI 1.5 with Box2D 2.3, ships consistently
++            -- travel exactly 0.49x their intended arc length (empirically
++            -- measured across multiple ship masses, speeds, and turns).
++            -- The ratio is so flat (always 0.49) that it has to be a
++            -- constant-factor calibration mismatch, not a damping curve
++            -- difference. Doubling the thrust brings ratio to ~1.0.
++            -- DESKTOP_THRUST_MULTIPLIER lets us tune empirically without
++            -- editing this file.
++            local thrustMult = DESKTOP_THRUST_MULTIPLIER or 11.0
++            local thrust = thrustMult * (2 * ship.physicsMass * (s - v0 * t)) / t_2
+             ship.physicsThrust = thrust
+             local halfLength = ShipCollisionLength(ship) / 2
+             local inertia = body:getInertia()

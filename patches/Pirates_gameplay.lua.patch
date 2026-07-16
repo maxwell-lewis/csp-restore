@@ -1,0 +1,48 @@
+--- a/Pirates/gameplay.lua
++++ b/Pirates/gameplay.lua
+@@ -1564,6 +1564,13 @@
+       end
+     end
+     soundHandler.stop(gameplayScene.sounds.weapons[DEATHRAY][5])
++    -- Belt-and-suspenders: stop EVERY native sound that's still playing.
++    -- Without this, a looping weapon SFX that was active when the scene
++    -- closes (e.g. cannon fire just before victory) would keep playing on
++    -- the main menu. The shim exposes stopAllNativeSounds for this.
++    if MOAISim.stopAllNativeSounds then
++      MOAISim.stopAllNativeSounds()
++    end
+     gameplayScene.timerList = {}
+     yield()
+     ClearPhysics()
+@@ -2145,7 +2152,6 @@
+   voyageEndBriefingContinueBtn_up = function()
+     if GAMEPLAY_MODE == SINGLE_PLAYER then
+       if IPHONE_UI then
+-        do break end
+         if gameplayScene.curMusicTrack > 0 then
+           soundHandler.stop(gameplayScene.sounds.music[gameplayScene.curMusicTrack])
+         end
+@@ -2637,7 +2643,6 @@
+           end
+         elseif not isDown then
+           if not isMenuButtonsPressed and not actionPressed and not HUDHandler.passAndPlay.inUse and not HUDHandler.quitBox.inUse and not HUDHandler.imageBox.inUse and not HUDHandler.dialogBoxes[1].inUse and not HUDHandler.detailCard.inUse and not HUDHandler.boardingGame.inUse and not voyageendScene.inUse then
+-            do break end
+             if IPHONE_UI and curTouchTime - lastTouchTime < 0.25 then
+               print("Double Click")
+               wasDoubleTap = true
+@@ -3140,7 +3145,6 @@
+           do
+             local diffX = math.abs(gameplayScene.detailTouchedLastX - gameplayScene.hudX)
+             local diffY = math.abs(gameplayScene.detailTouchedLastY - gameplayScene.hudY)
+-            do break end
+             if IPHONE_UI then
+               if InputManager.up() and MOAISim:getTime() - detailTouchTime < 0.25 and not doubleClickAction then
+                 doubleClickAction = MOAITimer.new()
+@@ -4162,7 +4166,6 @@
+           end
+           HUDlayer:removeProp(objectiveResults[i].prop)
+           HUDlayer:removeProp(objectiveResults[i].bg)
+-          do break end
+           if IPHONE_UI then
+             local position = 0
+             for i = 1, 3 do

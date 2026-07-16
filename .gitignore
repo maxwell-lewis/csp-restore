@@ -1,0 +1,30 @@
+# Build output — never commit the engine binary or assembled game
+/build/
+*.moai
+
+# NEVER commit copyrighted material or anything derived from the IPA
+*.ipa
+/baseline/
+/staging/
+*.pvr
+*.pv1
+# Assets (in case anyone points the converter output into the repo)
+Pirates/img_iphone/
+Pirates/particles_iphone/
+Pirates/music/
+Pirates/sfx/
+Pirates/levels/
+Pirates/ships/
+Pirates/sailors/
+Pirates/islands/
+# Decompiled game source must never be committed — only patches are allowed
+/decompiled/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Editor
+*.swp
+.DS_Store

@@ -1,0 +1,27 @@
+--- a/Pirates/main.lua
++++ b/Pirates/main.lua
+@@ -58,10 +58,14 @@
+ dofile("debug.lua")
+ require("collision")
+ require("soundLoader")
+-do break end
+ if not iOS and not ANDROID then
+   if MOAISim.setLeakTrackingEnabled ~= nil then
+-    MOAISim.setLeakTrackingEnabled(true)
++    -- 2011 game enabled leak tracking on desktop dev builds. The reporting
++    -- runs on every scene switch and dumps hundreds of lines for normally-
++    -- cached state (textures, range arcs, dialog history, persistent sounds)
++    -- that's still rooted in _G and therefore not actually leaking. The
++    -- noise drowns out real errors. Keep tracking off on this Linux port.
++    MOAISim.setLeakTrackingEnabled(false)
+   end
+   function ReportMOAILeaks(clear, filename, globalsFilename)
+     if MOAISim.reportLeaks then
+@@ -359,7 +363,6 @@
+       return ps
+     end
+   end
+-  do break end
+   settings.reinitState = {
+     curSaga = 1,
+     curChapter = 1,

@@ -1,0 +1,60 @@
+--- a/Pirates/shipManager.lua
++++ b/Pirates/shipManager.lua
+@@ -527,7 +527,6 @@
+     object.ship.frames = frames
+     if object.isIce then
+       object.ship.sprite:setPriority(priorityTable.ice)
+-      do break end
+       if object.type ~= "fort" and not object.isIce then
+         for _i = 1, 2 do
+           local hpthingy = createAnimatedObject(fileData.gfx, fileData.width, fileData.height, 1, frames, priorityTable[object.type] - 3)
+@@ -555,7 +554,6 @@
+     object.onion_handle.sprite:setParent(object.onion.sprite)
+     if object.type ~= "fort" and not object.isIce then
+       object.onion_handle.sprite:setLoc((fileData.collisionLength * 0.5 + ONION_HANDLE_OFFSET) * gameplayScene.curScale, 0)
+-      do break end
+       object.onion_aft = createStaticObject("onion_handle_aft.png", 128, 64, 100)
+       object.onion_aft.sprite:setParent(object.onion.sprite)
+       if object.type ~= "fort" and not object.isIce then
+@@ -1046,7 +1044,7 @@
+     object.isRayActive = false
+     object.raygun = MOAIProp2D.new()
+     object.raygun:setPriority(11)
+-    if weapon ~= nil then
++    if weapon ~= nil and weapon.curve ~= nil and weapon.flash ~= nil then
+       weapon.anim = MOAIAnim.new()
+       weapon.anim:reserveLinks(1)
+       weapon.anim:setLink(1, weapon.curve, weapon.flash, MOAIProp2D.ATTR_INDEX)
+@@ -1913,9 +1911,16 @@
+         finalDestination.y = finalDestination.y + direction.y * (ship.halfLength / 2)
+       end
+       origin.rot = ship.ship.sprite:getRot()
+-      dirX, dirY = ship.ship.sprite:getWorldDir()
+-      dirX = dirX * aMag
+-      dirY = dirY * aMag
++      -- 2011-era MOAI eagerly updated MOAIProp2D's world matrix on setRot;
++      -- 1.5 lazily defers it until the next render pass. The newCourse path
++      -- projection runs every frame in updateGuideline, often AFTER a
++      -- rotation change but BEFORE the render flushes — so getWorldDir
++      -- returns the previous frame's heading and the projected path
++      -- mis-aligns from the ghost ship. We already have the correct
++      -- direction unit vector in `direction` (computed from getRot just
++      -- above), so use it instead of asking the stale matrix.
++      dirX = direction.x * aMag
++      dirY = direction.y * aMag
+       finalDestination.rot = ship.ship.sprite:getRot()
+     end
+     local keepDoing = true
+@@ -5452,6 +5457,12 @@
+           end
+         end
+       end
++      -- Safety yield: ensure outer while ALWAYS yields each iteration
++      -- regardless of which inner branches were taken. Without this, if all
++      -- ships hit branches that don't trigger the numIters>20 yield (e.g.,
++      -- only player ships and buoys, no enemies), the outer while is a tight
++      -- infinite loop and the engine freezes.
++      coroutine.yield()
+     end
+   end,
+   updateWeaponRange = function(ship)

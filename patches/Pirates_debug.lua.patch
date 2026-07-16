@@ -1,0 +1,18 @@
+--- a/Pirates/debug.lua
++++ b/Pirates/debug.lua
+@@ -16,3 +16,15 @@
+ else
+   _DEBUG_VAR_ = {}
+ end
++-- Desktop port: selectively enable level unlock for debugging without
++-- turning on the rest of _DEBUG_VAR_ (which would change AI/pathfinding/
++-- HUD/FPS overlay behavior in ways that confuse normal play). Honors a
++-- DESKTOP_UNLOCK_ALL global that boot.lua may set; the global default
++-- (true) keeps unlock-all on so testing mid- and late-game missions
++-- doesn't require playing through the entire saga first.
++if DESKTOP_UNLOCK_ALL == nil then
++  DESKTOP_UNLOCK_ALL = true
++end
++if DESKTOP_UNLOCK_ALL then
++  _DEBUG_VAR_.DEBUG_UNLOCK_ALL_LEVELS = true
++end

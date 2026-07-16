@@ -1,0 +1,33 @@
+--- a/Library/sound.lua
++++ b/Library/sound.lua
+@@ -78,7 +78,7 @@
+           MOAISim.loadNativeSound(filepath, soundHandler.sounds)
+         end
+       else
+-        MOAISim.loadNativeSound(filepath, soundHandler.sounds)
++        MOAISim.loadNativeSound(filepath, soundHandler.sounds, volume)
+       end
+       table.insert(soundHandler.soundList, file)
+       print("Creating sound effect: " .. file .. " at index " .. soundHandler.sounds)
+@@ -108,6 +108,11 @@
+         end
+       elseif ANDROID then
+         MOAISim.playNativeSound(id)
++      else
++        -- Desktop (Linux port): route through MOAISim.playNativeSound which
++        -- boot.lua has shimmed to MOAIUntzSound. Match the iOS/ANDROID
++        -- behavior to keep the surrounding game logic happy.
++        MOAISim.playNativeSound(id)
+       end
+     end
+   end,
+@@ -144,6 +149,9 @@
+         end
+       elseif ANDROID then
+         MOAISim.playNativeSoundLooping(id, iterations)
++      else
++        -- Desktop loop path: same route as play(), looping flavor.
++        MOAISim.playNativeSoundLooping(id, iterations)
+       end
+     end
+   end,
