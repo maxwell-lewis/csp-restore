@@ -4,11 +4,10 @@
 
 *Crimson Steam Pirates* was a turn-based naval-combat strategy game by Bungie /
 Harebrained Schemes, released for iPhone in December 2011 and built on the
-[MOAI SDK](https://github.com/moai/moai-dev). It was an iPhone-only release,
-was later delisted, and can no longer be purchased. This project restores it
-as a native Linux game.
+[MOAI SDK](https://github.com/moai/moai-dev). It was later delisted, and can no longer be purchased.
+This project restores it as a native Linux game.
 
-**This repository contains no game assets.** It ships only original work: a
+This repository contains no game assets. It ships only original work: a
 MOAI compatibility shim layer, mock modules, a set of source patches, and the
 tooling to rebuild the game. You supply your own copy of the original `.ipa`
 (see [Getting the IPA](#getting-the-ipa)); the converter rebuilds the playable
