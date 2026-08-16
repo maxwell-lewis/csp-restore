@@ -9,8 +9,10 @@
 sudo apt install python3 python3-pip default-jre ffmpeg patch \
      build-essential cmake git libsdl2-dev freeglut3-dev \
      libgl1-mesa-dev libglu1-mesa-dev libx11-dev libxext-dev \
-     libxrandr-dev libxxf86vm-dev libxcursor-dev libxinerama-dev zlib1g-dev
-pip install --user texture2ddecoder pillow
+     libxrandr-dev libxxf86vm-dev libxcursor-dev libxinerama-dev zlib1g-dev libfreetype-dev libpng-dev
+python3 -m venv ~/.venvs/csp   # PEP 668: system Python is externally managed
+~/.venvs/csp/bin/pip install texture2ddecoder pillow
+source ~/.venvs/csp/bin/activate
 
 # 2. engine (one time)
 scripts/build-moai.sh

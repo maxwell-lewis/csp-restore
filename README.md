@@ -50,8 +50,11 @@ sudo apt install python3 python3-pip default-jre ffmpeg patch \
      build-essential cmake git \
      libsdl2-dev freeglut3-dev libgl1-mesa-dev libglu1-mesa-dev \
      libx11-dev libxext-dev libxrandr-dev libxxf86vm-dev \
-     libxcursor-dev libxinerama-dev zlib1g-dev
-pip install --user texture2ddecoder pillow
+     libxcursor-dev libxinerama-dev zlib1g-dev libfreetype-dev libpng-dev
+# Debian/Ubuntu's Python is externally managed (PEP 668) — use a venv:
+python3 -m venv ~/.venvs/csp
+~/.venvs/csp/bin/pip install texture2ddecoder pillow
+source ~/.venvs/csp/bin/activate   # run the converter from this shell
 ```
 
 Arch:
@@ -59,7 +62,7 @@ Arch:
 ```bash
 sudo pacman -S python python-pip jre-openjdk ffmpeg patch \
      base-devel cmake git sdl2 freeglut mesa glu libx11 libxext \
-     libxrandr libxxf86vm libxcursor libxinerama zlib
+     libxrandr libxxf86vm libxcursor libxinerama zlib freetype libpng
 # Arch's Python is externally managed (PEP 668) — use a venv:
 python -m venv ~/.venvs/csp
 ~/.venvs/csp/bin/pip install texture2ddecoder pillow
@@ -72,8 +75,11 @@ Fedora:
 sudo dnf install python3 python3-pip java-latest-openjdk-headless ffmpeg \
      patch gcc-c++ cmake git SDL2-devel freeglut-devel mesa-libGL-devel \
      mesa-libGLU-devel libX11-devel libXext-devel libXrandr-devel \
-     libXxf86vm-devel libXcursor-devel libXinerama-devel zlib-devel
-pip install --user texture2ddecoder pillow
+     libXxf86vm-devel libXcursor-devel libXinerama-devel zlib-devel freetype-devel libpng-devel
+# Fedora's Python is externally managed (PEP 668) — use a venv:
+python3 -m venv ~/.venvs/csp
+~/.venvs/csp/bin/pip install texture2ddecoder pillow
+source ~/.venvs/csp/bin/activate   # run the converter from this shell
 ```
 
 ### 2. Build the MOAI engine (one time)

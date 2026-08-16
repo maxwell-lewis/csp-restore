@@ -16,10 +16,12 @@ mkdir -p "$TOOLS"
 # Pinned source: HansWessels/unluac (the fork used for this project's Lua 5.1
 # decompiles). Pin to a specific commit so output is reproducible.
 UNLUAC_REPO="https://github.com/HansWessels/unluac"
-UNLUAC_COMMIT="__PIN_ME__"       # set to the exact commit SHA you built with
-EXPECTED_JAR_SHA256="__PIN_ME__" # sha256 of the resulting unluac.jar
+# The committed converter/tools/unluac.jar was built from HansWessels/unluac,
+# but the exact commit is not recorded in this repo's docs/scripts. The jar
+# sha256 below is authoritative — a rebuild must produce exactly this hash.
+EXPECTED_JAR_SHA256="e7311b3b720228c2e71712fb5422d99e69bf0f70c7235078b0533d93fae34d5b"
 
-if [ "$UNLUAC_COMMIT" = "__PIN_ME__" ]; then
+if [ "$EXPECTED_JAR_SHA256" = "__PIN_ME__" ]; then
     cat <<'EOF'
 This script is not yet pinned. To finalize it:
   1. git clone https://github.com/HansWessels/unluac /tmp/unluac
@@ -37,7 +39,9 @@ fi
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 git clone "$UNLUAC_REPO" "$TMP/unluac"
-git -C "$TMP/unluac" checkout "$UNLUAC_COMMIT"
+if [ -n "${UNLUAC_COMMIT:-}" ]; then
+    git -C "$TMP/unluac" checkout "$UNLUAC_COMMIT"
+fi
 ( cd "$TMP/unluac" && bash build.sh )
 JAR="$(find "$TMP/unluac" -name 'unluac.jar' | head -1)"
 got="$(sha256sum "$JAR" | awk '{print $1}')"
