@@ -22,7 +22,7 @@ signatures changed, some iOS-only features removed. On top of that:
 
 ## Engine build (`scripts/build-moai.sh`)
 
-Three source patches to build MOAI on modern Linux:
+Ten source patches to build MOAI on modern Linux:
 
 1. `src/zl-util/ZLAdapterInfo_posix.cpp` — guard `#include <sys/sysctl.h>`
    behind `#if __APPLE__` (glibc dropped the header at 2.30).
@@ -32,6 +32,27 @@ Three source patches to build MOAI on modern Linux:
    against **system SDL2** (`pkg_check_modules(SYSTEM_SDL2 REQUIRED sdl2)`)
    instead of the bundled static SDL2. This is the fix that makes sound
    actually play through ALSA/PulseAudio.
+4. `cmake/third-party/png/CMakeLists.txt` + `cmake/third-party/zlib/CMakeLists.txt` —
+   swap the bundled libpng 1.4.0 / zlib 1.2.3 (2010/2005, uncompilable on a
+   modern toolchain) for the **system** libraries; INTERFACE wrappers keep the
+   `png`/`zlib` target names so downstream links still resolve.
+5. `cmake/third-party/freetype/CMakeLists.txt` — swap bundled FreeType 2.4.4
+   for the **system** library (the font reader only uses the stable core API).
+6. `cmake/third-party/luaext/*/CMakeLists.txt` — fix the `add_dependencies`
+   target-name typo (`lualib-static` vs the real `liblua-static`) that is a
+   hard error at generate time under CMake 4.x.
+7. `crypto/ui/ui_openssl.c` + `crypto/des/read_pwd.c` — select **TERMIOS**
+   instead of TERMIO (`<termio.h>` removed in glibc 2.42+); only the
+   never-called interactive password UI is affected.
+8. `cmake/third-party/sdl2/CMakeLists.txt` — do **not** build the vendored
+   SDL 2.0.0 (its GL renderer conflicts with modern `glext.h`); replace it
+   with an INTERFACE wrapper around system SDL2.
+9. `cmake/third-party/CMakeLists.txt` + `cmake/third-party/luaext/CMakeLists.txt` —
+   gate the third-party curl and luacurl subdirectories behind `MOAI_CURL`
+   (off in this build) so the dead 2010-era code never configures.
+10. `3rdparty/luasql-2.2.0/src/ls_sqlite3.c` — fix `opts_settimeout` passing
+    the Lua wrapper struct to `sqlite3_busy_timeout` instead of the raw
+    `sqlite3*` handle (hard error on GCC 14+).
 
 ## Shim layer (`port-overlay/boot.lua`)
 
