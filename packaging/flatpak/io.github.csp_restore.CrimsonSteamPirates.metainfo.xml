@@ -31,6 +31,13 @@
     <content_attribute id="violence-cartoon">moderate</content_attribute>
   </content_rating>
   <releases>
+    <release version="1.1.1" date="2026-10-07">
+      <description>
+        <p>Flatpak: first-run setup offers the HD art pack, and the manifest
+        now builds (GNOME 50 runtime, bundled JRE, GLU, freeglut and
+        patch).</p>
+      </description>
+    </release>
     <release version="1.1.0" date="2026-10-07">
       <description>
         <p>Optional HD art pack: build with the full-resolution 1024x768
