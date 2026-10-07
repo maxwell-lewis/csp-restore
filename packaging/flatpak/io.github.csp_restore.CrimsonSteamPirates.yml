@@ -6,44 +6,100 @@
 # app's writable data directory. The optional HD art pack is likewise fetched
 # from the Internet Archive (or supplied by the user) at setup time.
 #
-# Build:
+# One-time host setup:
+#   flatpak remote-add --user --if-not-exists flathub \
+#       https://dl.flathub.org/repo/flathub.flatpakrepo
+#   flatpak install --user flathub org.gnome.Platform//50 org.gnome.Sdk//50 \
+#       org.freedesktop.Sdk.Extension.openjdk//25.08
+#
+# Build + install (from this directory):
 #   flatpak-builder --user --install --force-clean build-dir \
 #       io.github.csp_restore.CrimsonSteamPirates.yml
 #
+# This is a local-build manifest: the moai and python-deps modules fetch
+# their sources over the network at build time (build-args below). A Flathub
+# submission would have to pin those as manifest sources instead.
+#
 app-id: io.github.csp_restore.CrimsonSteamPirates
-runtime: org.freedesktop.Platform
-runtime-version: '23.08'
-sdk: org.freedesktop.Sdk
+# GNOME runtime: the first-run setup window is GTK 3 + PyGObject, both of
+# which it provides, along with python3, ffmpeg, patch and SDL2.
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  # unluac (the Lua decompiler the converter runs) needs a JRE at runtime.
+  - org.freedesktop.Sdk.Extension.openjdk
 command: csp-launch
 
 finish-args:
-  # Display
+  # Display. The engine's GLUT host is X11-only, so it runs through XWayland
+  # on Wayland sessions; the GTK setup window uses Wayland natively.
   - --socket=x11
   - --socket=wayland
+  - --share=ipc
   - --device=dri
   # Audio
   - --socket=pulseaudio
-  # The first-run setup tool needs to read the user-provided IPA. We grant
-  # read access to common download locations rather than the whole home dir.
+  # The first-run setup tool needs to read the user-provided IPA (and an
+  # optional local crimson.tar.gz). We grant read access to common download
+  # locations rather than the whole home dir.
   - --filesystem=xdg-download:ro
   - --filesystem=xdg-documents:ro
   # Lets first-run setup fetch the optional HD art pack (crimson.tar.gz)
   # from the Internet Archive. Comment out to force local-file only; the user
   # can still pick a crimson.tar.gz they downloaded themselves.
   - --share=network
+  # JRE installed by the openjdk module below
+  - --env=PATH=/app/bin:/app/jre/bin:/usr/bin
+  - --env=JAVA_HOME=/app/jre
+
+cleanup:
+  - /include
+  - /lib/pkgconfig
+  - /lib/cmake
+  - '*.a'
+  - '*.la'
 
 modules:
-  # ---- The MOAI engine, built from open source ----------------------------
-  - name: sdl2
-    # Use the runtime's SDL2 if available; otherwise build. Most Freedesktop
-    # runtimes provide SDL2, so this is usually a no-op placeholder. If your
-    # runtime lacks it, add an SDL2 source module here.
+  # ---- JRE for unluac -----------------------------------------------------
+  - name: openjdk
     buildsystem: simple
     build-commands:
-      - 'true'
+      - /usr/lib/sdk/openjdk/install.sh
 
+  # ---- Engine dependencies the runtime does not ship ----------------------
+  - name: glu
+    buildsystem: meson
+    config-opts:
+      - -Ddefault_library=shared
+    sources:
+      - type: archive
+        url: https://archive.mesa3d.org/glu/glu-9.0.3.tar.xz
+        sha256: bd43fe12f374b1192eb15fe20e45ff456b9bc26ab57f0eee919f96ca0f8a330f
+
+  - name: freeglut
+    buildsystem: cmake-ninja
+    build-options:
+      # 3.6.0 has K&R-style `()` prototypes, which C23 (GCC 15's default)
+      # reads as `(void)` and rejects.
+      cflags: -std=gnu17
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+      - -DFREEGLUT_BUILD_DEMOS=OFF
+      - -DFREEGLUT_BUILD_STATIC_LIBS=OFF
+    sources:
+      - type: archive
+        url: https://github.com/freeglut/freeglut/releases/download/v3.6.0/freeglut-3.6.0.tar.gz
+        sha256: 9c3d4d6516fbfa0280edc93c77698fb7303e443c1aaaf37d269e3288a6c3ea52
+
+  # ---- The MOAI engine, built from open source ----------------------------
   - name: moai
     buildsystem: simple
+    build-options:
+      # build-moai.sh clones the MOAI SDK
+      build-args:
+        - --share=network
     build-commands:
       # build-moai.sh clones + patches + builds the engine and drops it at
       # /app/lib/csp/moai
@@ -52,6 +108,11 @@ modules:
     sources:
       - type: dir
         path: ../..   # repo root, so scripts/ and converter/ are present
+        skip: &skip
+          - .git
+          - build
+          - packaging/flatpak/build-dir
+          - packaging/flatpak/.flatpak-builder
 
   # ---- The converter toolchain + first-run app ----------------------------
   - name: csp-restore
@@ -63,6 +124,9 @@ modules:
       - cp -r port-overlay /app/lib/csp/port-overlay
       - cp -r patches /app/lib/csp/patches
       - cp -r scripts /app/lib/csp/scripts
+      # The converter applies the patch series with GNU patch, which the
+      # SDK has but the runtime does not — carry it along.
+      - install -Dm755 /usr/bin/patch /app/bin/patch
       # Launcher + first-run setup
       - install -Dm755 packaging/flatpak/csp-launch /app/bin/csp-launch
       - install -Dm755 packaging/flatpak/csp-setup.py /app/lib/csp/csp-setup.py
@@ -76,16 +140,14 @@ modules:
     sources:
       - type: dir
         path: ../..
+        skip: *skip
 
-  # Python deps for the converter (PVRTC decode + imaging). Add as needed;
-  # on Flathub you'd pin these to specific wheels with checksums.
+  # Python deps for the converter (PVRTC decode + imaging), fetched from PyPI.
   - name: python-deps
     buildsystem: simple
+    build-options:
+      build-args:
+        - --share=network
     build-commands:
-      - pip3 install --prefix=/app --no-index --find-links=wheels
-          texture2ddecoder pillow || pip3 install --prefix=/app
+      - pip3 install --prefix=/app --no-warn-script-location
           texture2ddecoder pillow
-    sources:
-      - type: dir
-        path: wheels
-        dest: wheels

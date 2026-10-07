@@ -31,3 +31,7 @@ __pycache__/
 # Editor
 *.swp
 .DS_Store
+
+# Flatpak build output
+packaging/flatpak/build-dir/
+packaging/flatpak/.flatpak-builder/
