@@ -239,8 +239,9 @@ Highlights (full detail in [docs/PORTING-NOTES.md](docs/PORTING-NOTES.md)):
 ---
 ## Graphics
 
-Because I was only able to find the iphone api I cannot increase
-the resolution of the graphics any further without the ipad version.
+The IPA only contains iPhone-resolution art. Build with the
+[HD art pack](#hd-art-pack) to get the full-resolution 1024×768 layout from
+the Chrome Web Store release.
 There is a visual bug with the ship trajectory display that
 makes it appeared offset from the ship, this however does not affect gameplay.
 

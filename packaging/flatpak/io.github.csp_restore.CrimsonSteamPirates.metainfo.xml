@@ -31,6 +31,13 @@
     <content_attribute id="violence-cartoon">moderate</content_attribute>
   </content_rating>
   <releases>
+    <release version="1.1.0" date="2026-10-07">
+      <description>
+        <p>Optional HD art pack: build with the full-resolution 1024x768
+        layout from the Chrome Web Store release. Fixes a crash when opening
+        the Options menu and undersized text.</p>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-07-14"/>
   </releases>
 </component>
