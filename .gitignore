@@ -9,6 +9,9 @@
 *.pvr
 *.pv1
 # Assets (in case anyone points the converter output into the repo)
+crimson.tar.gz
+Pirates/img/
+Pirates/particles/
 Pirates/img_iphone/
 Pirates/particles_iphone/
 Pirates/music/

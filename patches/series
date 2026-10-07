@@ -5,18 +5,19 @@
 # only the changes we made (plus the minimal surrounding context `patch`
 # needs to anchor them). They are regenerated with:
 #     scripts/make-patches.sh <reference.ipa> <working-port-dir>
-Library_objects.lua.patch
-Library_misc.lua.patch
-Library_screen.lua.patch
-Library_sound.lua.patch
-Pirates_debug.lua.patch
-Pirates_triggerManager.lua.patch
-Pirates_voyageend.lua.patch
-Pirates_collision.lua.patch
-Pirates_gameplay.lua.patch
+Pirates_mainmenu.lua.patch
 Pirates_main.lua.patch
-Pirates_shipManager.lua.patch
-Pirates_AIManager.lua.patch
-Pirates_utility.lua.patch
+Pirates_gameplay.lua.patch
+Pirates_debug.lua.patch
 Pirates_srHandler.lua.patch
+Pirates_AIManager.lua.patch
+Pirates_triggerManager.lua.patch
 Pirates_pathfinding.lua.patch
+Pirates_utility.lua.patch
+Pirates_collision.lua.patch
+Pirates_shipManager.lua.patch
+Pirates_voyageend.lua.patch
+Library_sound.lua.patch
+Library_screen.lua.patch
+Library_misc.lua.patch
+Library_objects.lua.patch

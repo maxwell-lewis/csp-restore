@@ -128,6 +128,19 @@ loop condition was expected** is a decompiler tell. Grep for it proactively.
 - **Resolution**: logical 480×320 iPhone space, upscaled 3× to a 1440×960
   window; text scaled 1.4× for legibility. Sub-viewport `setSize` calls
   converted from display units to window pixels.
+- **HD art pack** (optional, `--hd-pack` / `--download-hd-pack`): the Chrome
+  Web Store release shipped the iPad layout's full-resolution art but no
+  single-player level scripts, so it is used as an art source only. Its
+  `img/` and `particles/` become `Pirates/img/` and `Pirates/particles/`
+  (bytecode animation scripts decompiled; textures that only shipped in the
+  iPhone build filled in from `img_iphone/`). `boot.lua` then reports a
+  1024×768 screen so the game's own `IPAD_UI` branches run, upscaled 1.40625×
+  to 1440×1080. `CSP_UI=iphone` forces the old layout.
+- **Font sizes**: 2011 MOAI's `font:getScale()` returned pixels
+  (points × dpi / 72); the shim reports that in HD mode so font-sized text
+  matches the art.
+- **`MOAITextBox:setStringColor`**: removed in 1.5; shimmed with inline
+  `<c:…>` style spans (options menu On/Off labels).
 
 ## IAP / online
 

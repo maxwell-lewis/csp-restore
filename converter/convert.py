@@ -20,13 +20,19 @@ Pipeline
   3. Decompile Lua bytecode   (unluac, pinned)
   4. Decode PVRTC textures    (-> PNG)
   5. Transcode audio          (AIF/IMA4 -> OGG via ffmpeg)
-  6. Apply port overlay       (boot.lua, mocks, run.sh — our originals)
-  7. Apply patch series       (our diffs, over the fresh decompile)
-  8. Stage + verify           (into the output dir)
+  6. Install HD art pack      (optional — the Chrome Web Store release's
+                               full-resolution art, from the user's own copy
+                               of crimson.tar.gz or fetched from the Internet
+                               Archive on request)
+  7. Apply port overlay       (boot.lua, mocks, run.sh — our originals)
+  8. Apply patch series       (our diffs, over the fresh decompile)
+  9. Stage + verify           (into the output dir)
 
 Usage
 -----
   convert.py --ipa /path/to/CrimsonSteam.ipa --out ~/.local/share/csp
+  convert.py --ipa game.ipa --out ./build --hd-pack ~/Downloads/crimson.tar.gz
+  convert.py --ipa game.ipa --out ./build --download-hd-pack
   convert.py --ipa game.ipa --out ./build --skip-checksum   (dev/testing)
 """
 
@@ -36,7 +42,9 @@ import os
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
+import urllib.request
 import zipfile
 from pathlib import Path
 
@@ -60,6 +68,25 @@ SUPPORTED_IPAS = {
     "b2610d728e6af115e9e09ec52b636f72401658c2d308fbaa8551cfe43b970617":
         "Crimson Steam Pirates v1.2 (iPhone) — reference build",
 }
+
+# --- HD art pack -------------------------------------------------------------
+# The iPhone IPA only carries half-resolution UI art. The later desktop
+# (Chrome Web Store) release shipped the iPad layout's full-resolution art:
+# its img/ and particles/ directories are what boot.lua's HD mode loads.
+# That release is NOT a complete game on its own (it has no single-player
+# level scripts), so it is used purely as an art source on top of the IPA.
+#
+# Like the IPA, the archive is never redistributed here: the user supplies
+# their own copy (--hd-pack) or asks the converter to fetch it from the
+# Internet Archive (--download-hd-pack). It is checksum-gated the same way.
+HD_PACK_URL = "https://archive.org/download/crimson.tar/crimson.tar.gz"
+HD_PACK_PAGE = "https://archive.org/details/crimson.tar"
+SUPPORTED_HD_PACKS = {
+    "62bb6263f5013d3c28d9632594627ad121e766492f5c0e50708fef10e83c5acb":
+        "Crimson Steam Pirates (Chrome Web Store) — crimson.tar.gz",
+}
+# archive subdirectory -> directory under Pirates/
+HD_PACK_DIRS = {"img": "img", "particles": "particles"}
 
 # unluac is deterministic for a given jar + input. We pin the jar (checked in
 # under converter/tools/) so every user's decompile is byte-identical to the
@@ -271,6 +298,118 @@ def copy_plain_assets(app_dir, staging):
     log(f"copied {n} plain asset files")
 
 
+# --- Step 6b: HD art pack ----------------------------------------------------
+def download_hd_pack(dest):
+    log(f"downloading HD art pack from {HD_PACK_URL} …")
+    req = urllib.request.Request(HD_PACK_URL,
+                                 headers={"User-Agent": "csp-restore"})
+    try:
+        with urllib.request.urlopen(req) as resp, open(dest, "wb") as out:
+            total = int(resp.headers.get("Content-Length") or 0)
+            got, step = 0, 0
+            for block in iter(lambda: resp.read(1 << 20), b""):
+                out.write(block)
+                got += len(block)
+                if total and got * 10 // total > step:
+                    step = got * 10 // total
+                    log(f"  …{step * 10}%")
+    except OSError as e:
+        raise ConvertError(
+            f"could not download the HD art pack: {e}\n"
+            f"Download crimson.tar.gz yourself from {HD_PACK_PAGE} and pass "
+            "it with --hd-pack."
+        )
+    return dest
+
+
+def validate_hd_pack(pack_path, skip_checksum=False):
+    if not pack_path.is_file():
+        raise ConvertError(f"HD art pack not found: {pack_path}")
+    if not tarfile.is_tarfile(pack_path):
+        raise ConvertError(
+            f"{pack_path.name} is not a tar archive. Make sure you downloaded "
+            f"crimson.tar.gz itself from {HD_PACK_PAGE}."
+        )
+    digest = sha256_file(pack_path)
+    log(f"HD pack sha256: {digest}")
+    if skip_checksum:
+        log("HD pack checksum gate SKIPPED (--skip-checksum)")
+    elif digest not in SUPPORTED_HD_PACKS:
+        raise ConvertError(
+            f"This is not the supported HD art pack.\n"
+            f"  got:      {digest}\n"
+            f"  expected: {next(iter(SUPPORTED_HD_PACKS))}\n"
+            f"Download crimson.tar.gz from {HD_PACK_PAGE}."
+        )
+    else:
+        log(f"HD pack recognised: {SUPPORTED_HD_PACKS[digest]}")
+
+
+def install_hd_pack(pack_path, staging):
+    """Build Pirates/img and Pirates/particles from the Chrome release."""
+    pirates = staging / "Pirates"
+    log("installing HD art pack…")
+    n = 0
+    with tarfile.open(pack_path) as tar:
+        for member in tar:
+            if not member.isfile():
+                continue
+            parts = Path(member.name).parts
+            # layout: crimson/<dir>/…  — take only the art directories, and
+            # never trust a path from the archive beyond plain components.
+            if len(parts) < 3 or parts[0] != "crimson" or parts[1] not in HD_PACK_DIRS:
+                continue
+            if any(p in ("", ".", "..") for p in parts):
+                continue
+            dst = pirates.joinpath(HD_PACK_DIRS[parts[1]], *parts[2:])
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            with tar.extractfile(member) as src, open(dst, "wb") as out:
+                shutil.copyfileobj(src, out)
+            n += 1
+    if n == 0:
+        raise ConvertError("HD art pack contained no crimson/img files.")
+    log(f"extracted {n} HD art files")
+
+    # The pack's animation / particle scripts are Lua 5.1 bytecode built for
+    # a 32-bit host; decompile them in place so the 64-bit engine can load them.
+    if not shutil.which("java"):
+        raise ConvertError("java not found on PATH (needed to run unluac).")
+    d = 0
+    for sub in HD_PACK_DIRS.values():
+        for src in sorted((pirates / sub).rglob("*.lua")):
+            if not is_lua_bytecode(src):
+                continue
+            res = subprocess.run(["java", "-jar", str(UNLUAC_JAR), str(src)],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if res.returncode != 0 or not res.stdout:
+                raise ConvertError(
+                    f"unluac failed on HD pack file {src.relative_to(pirates)}:\n"
+                    f"{res.stderr.decode(errors='replace')}"
+                )
+            src.write_bytes(res.stdout)
+            d += 1
+    log(f"decompiled {d} HD pack Lua files")
+
+    # A handful of textures the iPad layout references only ever shipped in
+    # the iPhone build (splash screen, a few atlases and tutorial dialogs).
+    # Fill those gaps from the IPA's art; ip_* files are iPhone-layout only.
+    iphone = pirates / "img_iphone"
+    hd = pirates / "img"
+    g = 0
+    if iphone.is_dir():
+        for src in sorted(iphone.rglob("*")):
+            if (not src.is_file() or src.name.startswith("ip_")
+                    or src.suffix in (".pvr", ".pv1")):
+                continue
+            dst = hd / src.relative_to(iphone)
+            if dst.exists():
+                continue
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+            g += 1
+    log(f"filled {g} missing HD files from the iPhone art")
+
+
 # --- Step 7: overlay + patches ----------------------------------------------
 def apply_overlay(staging):
     log("applying port overlay (original shim files)…")
@@ -340,13 +479,21 @@ def finalize(staging, out_dir):
     log("verification passed")
 
 
-def convert(ipa_path, out_dir, skip_checksum=False, keep_work=False):
+def convert(ipa_path, out_dir, skip_checksum=False, keep_work=False,
+            hd_pack=None, download_hd=False):
     ipa_path = Path(ipa_path).resolve()
     out_dir = Path(out_dir).resolve()
     validate_ipa(ipa_path, skip_checksum=skip_checksum)
+    if hd_pack:
+        hd_pack = Path(hd_pack).expanduser().resolve()
+        validate_hd_pack(hd_pack, skip_checksum=skip_checksum)
 
     work = Path(tempfile.mkdtemp(prefix="csp-convert-"))
     try:
+        if download_hd and not hd_pack:
+            hd_pack = download_hd_pack(work / "crimson.tar.gz")
+            validate_hd_pack(hd_pack, skip_checksum=skip_checksum)
+
         extracted = work / "extracted"
         extracted.mkdir()
         app = extract_app(ipa_path, extracted)
@@ -358,6 +505,11 @@ def convert(ipa_path, out_dir, skip_checksum=False, keep_work=False):
         decode_textures(app, staging)
         transcode_audio(app, staging)
         copy_plain_assets(app, staging)
+        if hd_pack:
+            install_hd_pack(hd_pack, staging)
+        else:
+            log("no HD art pack given — building the iPhone-resolution "
+                "layout (see --hd-pack / --download-hd-pack)")
         apply_overlay(staging)
         apply_patches(staging)
         finalize(staging, out_dir)
@@ -379,6 +531,13 @@ def main(argv=None):
     )
     ap.add_argument("--ipa", help="path to the original .ipa file")
     ap.add_argument("--out", help="output directory for the playable game")
+    ap.add_argument("--hd-pack", metavar="TARBALL",
+                    help="path to crimson.tar.gz (the Chrome Web Store "
+                         f"release, from {HD_PACK_PAGE}); enables the "
+                         "full-resolution 1024x768 layout")
+    ap.add_argument("--download-hd-pack", action="store_true",
+                    help="fetch crimson.tar.gz from the Internet Archive "
+                         "instead of supplying it with --hd-pack")
     ap.add_argument("--skip-checksum", action="store_true",
                     help="bypass the supported-build gate (dev/testing only)")
     ap.add_argument("--keep-work", action="store_true",
@@ -428,7 +587,9 @@ def main(argv=None):
     try:
         convert(args.ipa, args.out,
                 skip_checksum=args.skip_checksum,
-                keep_work=args.keep_work)
+                keep_work=args.keep_work,
+                hd_pack=args.hd_pack,
+                download_hd=args.download_hd_pack)
     except ConvertError as e:
         print(f"\n[csp] ERROR: {e}", file=sys.stderr)
         return 1

@@ -105,6 +105,9 @@ while IFS= read -r -d '' f; do
 done < <(find "$REPO" \
             -path "$REPO/.git" -prune -o \
             \( -name '*.ipa' -o -name '*.pvr' -o -name '*.pv1' \
+               -o -name 'crimson.tar.gz' \
+               -o -path '*/Pirates/img/*' \
+               -o -path '*/Pirates/particles/*' \
                -o -path '*/Pirates/img_iphone/*' \
                -o -path '*/Pirates/levels/*' \
                -o -path '*/Pirates/ships/*' \

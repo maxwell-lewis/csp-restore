@@ -1,6 +1,31 @@
 --- a/Pirates/collision.lua
 +++ b/Pirates/collision.lua
-@@ -395,7 +395,7 @@
+@@ -20,6 +20,7 @@
+ local rad = math.rad
+ local sqrt = math.sqrt
+ local cos = math.cos
++local sin = math.sin
+ local abs = math.abs
+ local PHYSICS_SCALE = 0.01
+ local WORLD_BOUND_MASK = 15
+@@ -370,7 +371,15 @@
+   end
+   body:setTransform(x, y, rot)
+   body:setLinearDamping(1.835)
+-  body:setAngularDamping(1)
++  -- Angular damping defaults to the LINEAR damping value on desktop. With a
++  -- constant force and a constant torque, speed and turn rate each follow
++  -- (1 - e^-dt); the path is a constant-curvature arc -- which is exactly what
++  -- the onion-skin preview draws -- only when the two decay at the same rate.
++  -- Stock shipped 1.0 against a linear 1.835, so a ship covered 44% of its
++  -- distance but only 39% of its turn by mid-turn: it ran wide of the previewed
++  -- arc early and cut back late. Matching them also makes the measured turn
++  -- ratio independent of speed and turn angle (it is not, at 1.0).
++  body:setAngularDamping(DESKTOP_ANGULAR_DAMPING or 1)
+   ship.physicsDynamicFixture = fixture
+   physicsBodies[body] = body
+   UpdateShipDynamics(ship)
+@@ -395,7 +404,7 @@
      for i = 1, #active_ships do
        local ship = active_ships[i]
        local body = ship.physicsDynamicBody
@@ -9,22 +34,120 @@
          local sprite = ship.ship.sprite
          local cx, cy = body:getWorldCenter()
          local a = body:getAngle()
-@@ -517,7 +517,17 @@
+@@ -504,6 +513,29 @@
+             local dx, dy = angle2Vector(rad(crot))
+             local segmentLength = Distance(cx, cy, ship.getLastCoursePoint())
+             local s = ship.arcLength
++            -- ship.arcLength is the arc from wayPointList[1] to the last course
++            -- point, but wayPointList[1] is not the hull centre -- newCourse
++            -- pushes its origin forward (offsetNewCourseStart), measured at a
++            -- steady 15 units / 0.19 halfLength on a 79-halfLength hull. The
++            -- physics translates the CENTRE, so driving it by arcLength always
++            -- stopped the ship that far short of the onion-skin ghost.
++            --
++            -- Re-derive the arc from where the ship actually is. segmentLength
++            -- is the chord from the hull centre to the last course point (it was
++            -- already being computed here and thrown away, alongside an unused
++            -- _CalcArcLength -- this is very likely what the original did). For a
++            -- constant-curvature arc turning by theta, arc = chord*(theta/2)/sin(theta/2).
++            if DESKTOP_TARGET_COURSE_POINT ~= false and segmentLength > 0 and ship.arcLength and ship.arcLength > 0 then
++              local half = thetaRad / 2
++              local sFromCentre = segmentLength
++              if abs(half) > 1.0E-4 then
++                sFromCentre = segmentLength * half / sin(half)
++              end
++              -- guard: ignore obviously bad course data rather than launch a ship
++              if sFromCentre > 0 and sFromCentre < ship.arcLength * 2 + 100 then
++                s = sFromCentre
++              end
++            end
+             if ship.curVelocity < 0 or ship.isPlayerShip and ship.isReverse then
+               s = -s
+             end
+@@ -517,14 +549,44 @@
              end
              local w0 = thetaRad / t
              body:setAngularVelocity(0)
 -            local thrust = 5.5 * (2 * ship.physicsMass * (s - v0 * t)) / t_2
-+            -- The original 5.5 multiplier was tuned for 2011 MOAI 1.0 with
-+            -- Box2D 2.1. In MOAI 1.5 with Box2D 2.3, ships consistently
-+            -- travel exactly 0.49x their intended arc length (empirically
-+            -- measured across multiple ship masses, speeds, and turns).
-+            -- The ratio is so flat (always 0.49) that it has to be a
-+            -- constant-factor calibration mismatch, not a damping curve
-+            -- difference. Doubling the thrust brings ratio to ~1.0.
-+            -- DESKTOP_THRUST_MULTIPLIER lets us tune empirically without
-+            -- editing this file.
-+            local thrustMult = DESKTOP_THRUST_MULTIPLIER or 11.0
++            -- Calibrated against the engine itself, not estimated. A harness
++            -- rebuilt this exact setup (same world scale, hull polygon,
++            -- density, damping, per-frame constant force, 5s turn) and swept
++            -- 3 ship classes x 4 speeds x 6 turn angles. With the previous
++            -- 11.0 the path length came out 2.1365x the commanded arcLength --
++            -- dead flat across every mass, speed and angle, i.e. ships
++            -- overshot by more than 2x rather than falling short.
++            --
++            -- Solving the damped constant-force integral analytically agrees
++            -- exactly: displacement over a turn is (F/(m*d)) * (t - (1-e^-dt)/d),
++            -- so F = m*s*d/A with A = 4.4551 for d=1.835, t=5. Against the
++            -- formula below that is 11.0 / 2.1365 = 5.1486.
++            --
++            -- (The earlier "0.49x" note measured distance to the last course
++            -- POINT, which a ship misses when it under-rotates -- see the
++            -- torque constant below. That is a heading error, and inflating
++            -- thrust is the wrong lever for it.)
++            local thrustMult = DESKTOP_THRUST_MULTIPLIER or 5.1486
 +            local thrust = thrustMult * (2 * ship.physicsMass * (s - v0 * t)) / t_2
              ship.physicsThrust = thrust
              local halfLength = ShipCollisionLength(ship) / 2
              local inertia = body:getInertia()
+-            local k = 16
++            -- Same harness: with the stock 16 a ship completed only 0.4113 of
++            -- its commanded heading change (flat across speed and angle once
++            -- angular damping matches linear, 0.406-0.416 by hull). So it
++            -- turned well under half as far as the preview promised while
++            -- travelling the full arc length -- the ship ended up wide of the
++            -- onion ghost. 16 / 0.4113 = 38.90.
++            local k = DESKTOP_TORQUE_MULTIPLIER or 38.90
+             torque = thetaRad * inertia * k
+             ship.physicsTorque = torque
++            if _MOVE_DIAG then
++              local sx, sy = body:getWorldCenter()
++              ship._calib = { x = sx, y = sy, rot = body:getAngle(),
++                              s = s, thetaDeg = theta, usePath = false }
++            end
+             _UpdateUsePathDynamics(ship)
++            if _MOVE_DIAG and ship._calib then ship._calib.usePath = ship._usePathDynamics and true or false end
+           end
+         end
+       end
+@@ -537,6 +599,39 @@
+       for i, ship in ipairs(active_ships) do
+         local body = ship.physicsDynamicBody
+         if body then
++          -- (The decompiler emitted this loop with an EMPTY body; whatever the
++          -- original did at turn end was lost. Used here to measure where the
++          -- ship actually stopped relative to the course point the onion-skin
++          -- ghost is drawn at.)
++          if _MOVE_DIAG and ship._calib then
++            local ok = pcall(function()
++              local c = ship._calib
++              local cx, cy = body:getWorldCenter()
++              local chord = Distance(cx, cy, c.x, c.y)
++              local dRot = deg(AngleDiff(rad(c.rot), rad(body:getAngle())))
++              -- chord -> arc length for a constant-curvature arc of turn dRot
++              local half = rad(dRot) / 2
++              local arcAct = chord
++              if abs(half) > 1.0E-4 then arcAct = chord * half / sin(half) end
++              local cmdS = abs(c.s)
++              local cmdA = c.thetaDeg
++              -- residual: how far short of the onion-skin ghost we stopped
++              local missAlong, missHalfLen = 0, 0
++              if ship.wayPointList and #ship.wayPointList > 0 then
++                local lx, ly = ship.getLastCoursePoint()
++                local hx, hy = body:getWorldDir()
++                missAlong = (lx - cx) * hx + (ly - cy) * hy
++                missHalfLen = missAlong / (ship.halfLength or 1)
++              end
++              printfln("[calib] %-16s path=%s | cmd_s=%8.2f act_s=%8.2f s_ratio=%6.3f | cmd_ang=%7.2f act_ang=%7.2f a_ratio=%6.3f | miss=%7.1f (%5.2f halfLen)",
++                ship.name, tostring(c.usePath), cmdS, arcAct,
++                (cmdS > 0.01) and (arcAct / cmdS) or 0,
++                cmdA, dRot, (abs(cmdA) > 0.01) and (dRot / cmdA) or 0,
++                missAlong, missHalfLen)
++              ship._calib = nil
++            end)
++            if not ok then print("[calib] diag error") end
++          end
+         end
+       end
+     end

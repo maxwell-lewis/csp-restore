@@ -726,6 +726,15 @@ do
     if real_loadFromTTF and not font_iface.getScale then
         font_iface.loadFromTTF = function ( self, file, chars, pointsize, dpi )
             self._scale = pointsize
+            -- 2011 MOAI's getScale() returned the glyph size in PIXELS
+            -- (points * dpi / 72), and the game feeds that straight into
+            -- setTextSize(). Returning bare points leaves every font-sized
+            -- textbox 163/72 = 2.26x too small. HD mode reports the true
+            -- pixel size; the iPhone layout keeps the old behaviour, which
+            -- DESKTOP_TEXT_SCALE was tuned against.
+            if DESKTOP_HD and dpi then
+                self._scale = pointsize * dpi / 72
+            end
             local upscale = DESKTOP_UPSCALE_FACTOR or 1
             if upscale > 1 then
                 return real_loadFromTTF ( self, file, chars, pointsize, ( dpi or 72 ) * upscale )
@@ -767,6 +776,30 @@ do
         tbox_iface.setTextSize = function ( self, size, ... )
             local scale = DESKTOP_TEXT_SCALE or 1
             return real_setTextSize ( self, size * scale, ... )
+        end
+    end
+end
+
+-- MOAITextBox:setStringColor(start, count, r, g, b, a) coloured a run of
+-- characters (1-based start) in the 2011 API; the options menu uses it to
+-- tint the "On"/"Off" suffix of the SFX/Music buttons. 1.5 dropped it in
+-- favour of inline style escapes, so remember the plain string on setString
+-- and re-emit it with a <c:RRGGBBAA>...<c> span around the requested run.
+do
+    local tbox_iface = MOAITextBox.getInterfaceTable ()
+    local real_setString = tbox_iface.setString
+    if real_setString and not tbox_iface.setStringColor then
+        tbox_iface.setString = function ( self, str, ... )
+            self._plainString = str
+            return real_setString ( self, str, ... )
+        end
+        tbox_iface.setStringColor = function ( self, start, count, r, g, b, a )
+            local str = self._plainString
+            if type ( str ) ~= "string" or str:find ( "<", 1, true ) then return end
+            local function byte ( v ) return math.floor ( math.max ( 0, math.min ( 1, v or 1 ) ) * 255 + 0.5 ) end
+            local tag = string.format ( "<c:%02x%02x%02x%02x>", byte ( r ), byte ( g ), byte ( b ), byte ( a ) )
+            local stop = start + count - 1
+            real_setString ( self, str:sub ( 1, start - 1 ) .. tag .. str:sub ( start, stop ) .. "<c>" .. str:sub ( stop + 1 ) )
         end
     end
 end
@@ -859,6 +892,27 @@ end
 -- SIMULATE_SCREEN_SIZE if set before it runs.
 SIMULATE_SCREEN_SIZE = { 480, 320 }
 
+-- HD mode (csp-restore). The later desktop (Chrome Web Store) release ran
+-- the iPad layout: 1024x768 logical screen, full-resolution art in img/ and
+-- particles/ instead of the half-res ip_* art in img_iphone/. The decompiled
+-- game code still carries every IPAD_UI branch, so with those two asset
+-- directories present (built from the Chrome release) we can simply tell
+-- screen.lua the screen is 1024x768 and the whole UI -- main menu, loading
+-- screens, HUD, briefings -- switches to the HD art.
+--
+-- Set CSP_UI=iphone in the environment to get the old 480x320 layout back.
+DESKTOP_HD = os.getenv ( "CSP_UI" ) ~= "iphone"
+if DESKTOP_HD then
+    local probe = io.open ( "Pirates/img/missionselect_bkgd.png" )
+    if probe then
+        probe:close ()
+        SIMULATE_SCREEN_SIZE = { 1024, 768 }
+    else
+        print ( "[boot] Pirates/img/ missing -- falling back to iPhone layout" )
+        DESKTOP_HD = false
+    end
+end
+
 -- Display upscale for desktop. The game's logical resolution stays at the
 -- iPhone-native 480x320 (so all UI positioning, hit-testing, and asset
 -- selection still work), but the OpenGL viewport upscales to the desktop
@@ -870,7 +924,17 @@ SIMULATE_SCREEN_SIZE = { 480, 320 }
 --   3  → 1440x960   (pixel-perfect, fits in 1080p with letterbox top/bottom)
 --   4  → 1920x1280  (taller than 1080p, requires a 1440p+ monitor)
 -- Set to nil or 1 to skip upscale.
-DESKTOP_UPSCALE_FACTOR = 3
+-- 3.375 -> 1620x1080 (full 1080p HEIGHT at the game's native 3:2 aspect).
+-- On "1080p": the canvas is 480x320 = 3:2 while a 1080p screen is 16:9,
+-- so no factor fills it exactly. 3.375 gives all 1080 vertical pixels at
+-- the correct aspect, leaving thin pillars either side. Use 4 (1920x1280)
+-- instead on a 1440p+ display. Non-integer factors are fine: the viewport
+-- scales the logical canvas and input is divided back down by the factor.
+DESKTOP_UPSCALE_FACTOR = 3.375
+if DESKTOP_HD then
+    -- 1024x768 logical is 4:3; 1.40625 -> 1440x1080, full 1080p height.
+    DESKTOP_UPSCALE_FACTOR = 1.40625
+end
 
 -- Multiply all text sizes by this. The original game's text was tuned for a
 -- 3.5" iPhone screen held close; on a 1440x960 desktop window viewed at
@@ -879,6 +943,10 @@ DESKTOP_UPSCALE_FACTOR = 3
 -- some UI text (HUD ship-detail labels, button captions in tight panels)
 -- may clip. Set to 1 to disable.
 DESKTOP_TEXT_SCALE = 1.4
+if DESKTOP_HD then
+    -- The iPad layout's text was sized for a 9.7" screen; leave it alone.
+    DESKTOP_TEXT_SCALE = 1
+end
 
 -- Box2D-thrust calibration override. The original game's 5.5x multiplier
 -- in collision.lua (turn-start thrust calculation) was tuned for 2011-era

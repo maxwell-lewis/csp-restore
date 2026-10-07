@@ -1,0 +1,170 @@
+--- a/Pirates/mainmenu.lua
++++ b/Pirates/mainmenu.lua
+@@ -3096,6 +3096,86 @@
+     voyageBriefing.curPage = 1
+     voyageBriefing.pagesTransform = MOAITransform.new()
+     voyageBriefing.pagesTransform:setLoc(0 - (voyageBriefing.curPage - 1) * 480, 0)
++    -- HD single-page briefing (csp-restore).
++    -- The iPhone release split each mission briefing into two swipeable
++    -- 512x512 cards (_a / _b), each holding 480x320 of content. The later
++    -- desktop release shipped the same briefing as ONE landscape book spread:
++    -- voyagebriefing_<n>.png, 1024x1024 canvas with 1024x768 of content,
++    -- showing the story page and "The Plan" page side by side.
++    --
++    -- If that single file is present we prefer it: fit its 4:3 content to the
++    -- 3:2 logical screen by height (320 / 768 = 0.4167), which renders the
++    -- full 1024 canvas at ~427 units wide -- inside the 480-wide screen with
++    -- a little margin either side. numPages is forced to 1 so the paging
++    -- arrows, swipe handling and page dots all disable themselves.
++    local hdBriefing = IMG_PATH .. "mission_" .. levelCount .. "/voyagebriefing_" .. levelCount .. ".png"
++    local hdCheck = nil
++    if GAMEPLAY_MODE == SINGLE_PLAYER and DESKTOP_HD_BRIEFING ~= false then
++      hdCheck = io.open(hdBriefing)
++    end
++    if hdCheck ~= nil then
++      io.close(hdCheck)
++      voyageBriefing.numPages = 1
++      voyageBriefing.briefing_a = {}
++      local briefing_a = voyageBriefing.briefing_a
++      briefing_a.texture = MOAITexture.new()
++      briefing_a.texture:load(hdBriefing)
++      local width, height = briefing_a.texture:getSize()
++      -- content occupies the middle 3/4 of the canvas vertically
++      local contentH = height * 0.75
++      local scale = (DESKTOP_BRIEFING_SCALE or (320 / contentH))
++      local hw, hh = width * scale / 2, height * scale / 2
++      briefing_a.tiledeck = MOAITileDeck2D.new()
++      briefing_a.tiledeck:setTexture(briefing_a.texture)
++      briefing_a.tiledeck:setSize(1, 1)
++      briefing_a.tiledeck:setRect(-hw, -hh, hw, hh)
++      briefing_a.sprite = MOAIProp2D.new()
++      briefing_a.sprite:setDeck(briefing_a.tiledeck)
++      briefing_a.sprite:setParent(voyageBriefing.pagesTransform)
++      briefing_a.sprite:setPriority(1)
++      layer:insertProp(briefing_a.sprite)
++      -- Both buttons live on the single page. They are authored at iPhone
++      -- card size, so scale them by the same factor as the spread or they
++      -- tower over the artwork. MOAIProp:inside() respects the prop
++      -- transform, so scaling the sprite scales its touch area too.
++      local btnScale = DESKTOP_BRIEFING_BTN_SCALE or scale
++      voyageBriefing.hdScale = btnScale
++      -- Position against the CONTENT box (1024x768 of the canvas), not the
++      -- padded canvas, so the buttons sit on the parchment rather than in
++      -- the transparent margin.
++      local contentHalfH = contentH * scale / 2
++      voyageBriefing.backBtn.sprite:setParent(briefing_a.sprite)
++      voyageBriefing.backBtn.sprite:setScl(btnScale, btnScale)
++      voyageBriefing.backBtn.sprite:setLoc(-hw + 34, contentHalfH - 34)
++      layer:insertProp(voyageBriefing.backBtn.sprite)
++      voyageBriefing.startVoyageBtn.sprite:setParent(briefing_a.sprite)
++      voyageBriefing.startVoyageBtn.sprite:setScl(btnScale, btnScale)
++      voyageBriefing.startVoyageBtn.sprite:setLoc(hw - 78, -contentHalfH + 30)
++      layer:insertProp(voyageBriefing.startVoyageBtn.sprite)
++      if voyageBriefing.startVoyageBtn.text then
++        voyageBriefing.startVoyageBtn.text:setParent(voyageBriefing.startVoyageBtn.sprite)
++        layer:insertProp(voyageBriefing.startVoyageBtn.text)
++      end
++      -- The shared input handler unconditionally pokes swipeArrowLeft/Right
++      -- (they only exist on the 2-page path). Create them so those calls
++      -- resolve, but never insert them into the layer -- with numPages == 1
++      -- there is nothing to swipe to, and an uninserted prop hit-tests false.
++      if voyageBriefing.swipeArrowLeft == nil then
++        voyageBriefing.swipeArrowLeft = createButtonObject("ip_missionselect_swipe_arrow.png", 64, 16, 4, "ip_missionselect_swipe_arrow_press.png", 64, 16)
++        voyageBriefing.swipeArrowLeft.upFunc = mainmenuScene.voyageBriefingSwipeArrowLeft
++      end
++      if voyageBriefing.swipeArrowRight == nil then
++        voyageBriefing.swipeArrowRight = createButtonObject("ip_missionselect_swipe_arrow.png", 64, 16, 4, "ip_missionselect_swipe_arrow_press.png", 64, 16)
++        voyageBriefing.swipeArrowRight.upFunc = mainmenuScene.voyageBriefingSwipeArrowRight
++      end
++      mainmenuScene.isPreloading = true
++      for i, init in ipairs(gameplaySceneInitFuncs) do
++        init.isInProgress = false
++        init.isDone = false
++      end
++      return
++    end
++    voyageBriefing.numPages = 2
+     if GAMEPLAY_MODE == SINGLE_PLAYER then
+       local briefingFilename_a = IMG_PATH .. "mission_" .. levelCount .. "/voyagebriefing_" .. levelCount .. "_a.png"
+       voyageBriefing.briefing_a = {}
+@@ -3249,22 +3329,46 @@
+     PushResourceBucket("mainmenu")
+     local voyageBriefing = mainmenuScene.voyageBriefing
+     if GAMEPLAY_MODE == SINGLE_PLAYER then
++      -- NB: guard every teardown step. The single-page HD briefing creates
++      -- only briefing_a, never inserts the swipe arrows, and has no page
++      -- counters. (The original code nil-checked briefing_b's texture but
++      -- then removed its sprite unconditionally, which is the crash this
++      -- fixes.) removeProp on a prop that was never inserted is harmless,
++      -- but indexing a nil table is not.
+       if voyageBriefing.briefing_a ~= nil then
+-        voyageBriefing.briefing_a.texture:release()
++        if voyageBriefing.briefing_a.texture then
++          voyageBriefing.briefing_a.texture:release()
++        end
++        if voyageBriefing.briefing_a.sprite then
++          layer:removeProp(voyageBriefing.briefing_a.sprite)
++        end
+       end
+-      layer:removeProp(voyageBriefing.briefing_a.sprite)
+       if voyageBriefing.briefing_b ~= nil then
+-        voyageBriefing.briefing_b.texture:release()
++        if voyageBriefing.briefing_b.texture then
++          voyageBriefing.briefing_b.texture:release()
++        end
++        if voyageBriefing.briefing_b.sprite then
++          layer:removeProp(voyageBriefing.briefing_b.sprite)
++        end
+       end
+-      layer:removeProp(voyageBriefing.briefing_b.sprite)
+       layer:removeProp(voyageBriefing.backBtn.sprite)
+       layer:removeProp(voyageBriefing.startVoyageBtn.sprite)
+       layer:removeProp(voyageBriefing.startVoyageBtn.text)
+-      layer:removeProp(voyageBriefing.swipeArrowLeft.sprite)
+-      layer:removeProp(voyageBriefing.swipeArrowRight.sprite)
+-      for i, pageCounter in ipairs(voyageBriefing.pageCounters) do
+-        layer:removeProp(pageCounter.counter.sprite)
++      if voyageBriefing.swipeArrowLeft then
++        layer:removeProp(voyageBriefing.swipeArrowLeft.sprite)
++      end
++      if voyageBriefing.swipeArrowRight then
++        layer:removeProp(voyageBriefing.swipeArrowRight.sprite)
++      end
++      if voyageBriefing.pageCounters then
++        for i, pageCounter in ipairs(voyageBriefing.pageCounters) do
++          layer:removeProp(pageCounter.counter.sprite)
++        end
+       end
++      -- Clear so a following briefing starts from a clean slate rather than
++      -- inheriting the previous mission's page objects.
++      voyageBriefing.briefing_a = nil
++      voyageBriefing.briefing_b = nil
+     elseif GAMEPLAY_MODE == LOCAL_MULTI_PLAYER then
+       if voyageBriefing.briefing ~= nil then
+         voyageBriefing.briefing.texture:release()
+@@ -3344,7 +3448,7 @@
+       else
+         layer:removeProp(voyageBriefing.swipeArrowRight.sprite)
+       end
+-      for i, pageCounter in ipairs(voyageBriefing.pageCounters) do
++      for i, pageCounter in ipairs(voyageBriefing.pageCounters or {}) do
+         layer:removeProp(pageCounter.counter.sprite)
+         if i == voyageBriefing.curPage then
+           pageCounter.counter = createStaticObject("mainmenu_pagecounter_current.png", 8, 8, 4)
+@@ -4704,10 +4808,14 @@
+               noScroll = true
+             end
+             local startBtnX, startBtnY = voyageBriefing.startVoyageBtn.sprite:getLoc()
+-            if testPointAABB(mainmenuScene.inputX, mainmenuScene.inputY, startBtnX - 70, startBtnY - 30, startBtnX + 70, startBtnY + 30) and voyageBriefing.startVoyageBtn:down(mainmenuScene.inputX, mainmenuScene.inputY) then
++            -- The HD single-page briefing scales this button down, so the
++            -- pre-gate box has to scale with it or the button reads as a
++            -- much larger target than it looks.
++            local hs = voyageBriefing.hdScale or 1
++            if testPointAABB(mainmenuScene.inputX, mainmenuScene.inputY, startBtnX - 70 * hs, startBtnY - 30 * hs, startBtnX + 70 * hs, startBtnY + 30 * hs) and voyageBriefing.startVoyageBtn:down(mainmenuScene.inputX, mainmenuScene.inputY) then
+               noScroll = true
+             end
+-            if GAMEPLAY_MODE == SINGLE_PLAYER then
++            if GAMEPLAY_MODE == SINGLE_PLAYER and voyageBriefing.swipeArrowLeft and voyageBriefing.swipeArrowRight then
+               if voyageBriefing.swipeArrowLeft:down(mainmenuScene.inputX, mainmenuScene.inputY) then
+                 noScroll = true
+               end

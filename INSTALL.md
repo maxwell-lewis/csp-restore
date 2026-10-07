@@ -18,7 +18,10 @@ source ~/.venvs/csp/bin/activate
 scripts/build-moai.sh
 
 # 3. get the IPA from the Internet Archive (see README), then:
+#    (--download-hd-pack also fetches the HD art pack, ~100 MB; omit it for
+#    the original iPhone-resolution game)
 python3 converter/convert.py --ipa ~/Downloads/CrimsonSteam.ipa \
+    --download-hd-pack \
     --out ~/.local/share/crimson-steam-pirates
 
 # 4. play

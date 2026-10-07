@@ -10,8 +10,9 @@ This project restores it as a native Linux game.
 This repository contains no game assets. It ships only original work: a
 MOAI compatibility shim layer, mock modules, a set of source patches, and the
 tooling to rebuild the game. You supply your own copy of the original `.ipa`
-(see [Getting the IPA](#getting-the-ipa)); the converter rebuilds the playable
-game from it, entirely on your own machine.
+(see [Getting the IPA](#getting-the-ipa)), and optionally the HD art pack
+(see [HD art pack](#hd-art-pack)); the converter rebuilds the playable game
+from them, entirely on your own machine.
 
 This is the same model used by ScummVM, DXX-Rebirth, and other engine
 reimplementations: **we provide the engine and the fixes; you bring the game
@@ -28,11 +29,14 @@ Given the original iOS `.ipa`, the converter:
 2. **Decompiles** the game's Lua 5.1 bytecode with a pinned `unluac`.
 3. **Decodes** the PowerVR (PVRTC) textures to PNG.
 4. **Transcodes** the iOS audio (AIF/IMA4) to OGG.
-5. **Applies the port overlay** — our original shim files (`boot.lua`, mocks).
-6. **Applies the patch series** — our fixes for MOAI API drift, decompiler
+5. **Installs the HD art pack** (optional) — the full-resolution art from the
+   later Chrome Web Store release, which switches the whole UI to the
+   1024×768 layout.
+6. **Applies the port overlay** — our original shim files (`boot.lua`, mocks).
+7. **Applies the patch series** — our fixes for MOAI API drift, decompiler
    artifacts, Box2D version differences, and dozens of gameplay bugs, captured
    as unified diffs against the fresh decompile.
-7. **Stages and verifies** a ready-to-run game directory.
+8. **Stages and verifies** a ready-to-run game directory.
 
 The result plays start to finish — all three sagas, every chapter, with audio,
 at desktop resolution.
@@ -101,8 +105,14 @@ See [Getting the IPA](#getting-the-ipa) below. Download it to, say,
 ```bash
 python3 converter/convert.py \
     --ipa ~/Downloads/CrimsonSteam.ipa \
+    --download-hd-pack \
     --out ~/.local/share/crimson-steam-pirates
 ```
+
+`--download-hd-pack` fetches the [HD art pack](#hd-art-pack) (~100 MB) from
+the Internet Archive. If you already downloaded it, use
+`--hd-pack ~/Downloads/crimson.tar.gz` instead. Leave both off to build the
+original iPhone-resolution game.
 
 ### 5. Play
 
@@ -135,6 +145,32 @@ checksum and will tell you if you have a different build (for example the iPad
 > **Note.** The converter supports one specific build. If your download's
 > checksum doesn't match, you likely have a different upload or edition —
 > grab the exact file linked above.
+
+---
+
+## HD art pack
+
+The iPhone release only carries half-resolution UI art (480×320). The game was
+later released on the Chrome Web Store with the full-resolution iPad layout
+(1024×768). That release is archived at the Internet Archive:
+
+> **https://archive.org/details/crimson.tar**
+>
+> Direct file: [`crimson.tar.gz`](https://archive.org/download/crimson.tar/crimson.tar.gz) (~100 MB)
+> sha256: `62bb6263f5013d3c28d9632594627ad121e766492f5c0e50708fef10e83c5acb`
+
+It is not a complete game on its own — it has no single-player missions — so
+the converter uses it purely as an art source on top of the IPA: it takes the
+archive's `img/` and `particles/` directories, decompiles their animation
+scripts, and installs them as `Pirates/img/` and `Pirates/particles/`. When
+those are present the game runs the HD layout: main menu, loading screens,
+briefings, and HUD all use the full-resolution art.
+
+Pass it with `--hd-pack /path/to/crimson.tar.gz`, or let the converter fetch
+it with `--download-hd-pack`. Like the IPA it is checksum-gated and never
+redistributed by this repository.
+
+To run an HD build in the original iPhone layout: `CSP_UI=iphone ./run.sh`.
 
 ---
 
