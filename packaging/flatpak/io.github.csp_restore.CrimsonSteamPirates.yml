@@ -3,7 +3,8 @@
 # This Flatpak bundles ONLY original work + the open-source MOAI engine +
 # the conversion toolchain. It contains NO game assets. On first launch the
 # user is asked to supply their own .ipa, which is converted in place into the
-# app's writable data directory.
+# app's writable data directory. The optional HD art pack is likewise fetched
+# from the Internet Archive (or supplied by the user) at setup time.
 #
 # Build:
 #   flatpak-builder --user --install --force-clean build-dir \
@@ -26,8 +27,9 @@ finish-args:
   # read access to common download locations rather than the whole home dir.
   - --filesystem=xdg-download:ro
   - --filesystem=xdg-documents:ro
-  # Optional: allow fetching the IPA from the Internet Archive if the user
-  # chooses the "download for me" path. Comment out to force local-file only.
+  # Lets first-run setup fetch the optional HD art pack (crimson.tar.gz)
+  # from the Internet Archive. Comment out to force local-file only; the user
+  # can still pick a crimson.tar.gz they downloaded themselves.
   - --share=network
 
 modules:
